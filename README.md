@@ -34,7 +34,7 @@ Page Magic é uma plataforma completa que permite aos usuários criar sites prof
 
 ```bash
 # Clonar o repositório
-git clone https://github.com/pagemagic/pagemagic.git
+git clone https://github.com/eltonciatto/pagemagic.git
 cd pagemagic
 
 # Configurar ambiente
