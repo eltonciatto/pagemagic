@@ -1,0 +1,45 @@
+[package]
+name = "builder-svc"
+version = "0.1.0"
+edition = "2021"
+authors = ["Page Magic Team"]
+description = "Serviço de construção de sites - Conversão JSON → AST → HTML/React"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+axum = { version = "0.7", features = ["macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["cors", "compression", "trace"] }
+hyper = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+dotenv = "0.15"
+clap = { version = "4.0", features = ["derive"] }
+config = "0.14"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
+redis = { version = "0.24", features = ["tokio-comp"] }
+prometheus = "0.13"
+axum-prometheus = "0.6"
+
+# Template engines
+handlebars = "4.5"
+tera = "1.19"
+
+# HTML/CSS processing
+scraper = "0.18"
+css-parser = "0.29"
+
+# React/JSX generation
+swc = "0.276"
+swc_ecma_ast = "0.110"
+swc_ecma_codegen = "0.147"
+
+[dev-dependencies]
+tokio-test = "0.4"

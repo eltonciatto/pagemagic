@@ -43,9 +43,9 @@ type DatabaseConfig struct {
 
 // JWTConfig configurações JWT
 type JWTConfig struct {
-	Secret            string
-	AccessTokenTTL    time.Duration
-	RefreshTokenTTL   time.Duration
+	Secret             string
+	AccessTokenTTL     time.Duration
+	RefreshTokenTTL    time.Duration
 	RefreshTokenSecret string
 }
 

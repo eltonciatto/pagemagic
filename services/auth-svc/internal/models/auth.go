@@ -28,22 +28,22 @@ const (
 
 // User modelo do usuário
 type User struct {
-	ID                        uuid.UUID  `json:"id" db:"id"`
-	Email                     string     `json:"email" db:"email"`
-	EmailVerified             bool       `json:"email_verified" db:"email_verified"`
-	PasswordHash              *string    `json:"-" db:"password_hash"`
-	FirstName                 *string    `json:"first_name" db:"first_name"`
-	LastName                  *string    `json:"last_name" db:"last_name"`
-	AvatarURL                 *string    `json:"avatar_url" db:"avatar_url"`
-	Status                    UserStatus `json:"status" db:"status"`
-	Locale                    string     `json:"locale" db:"locale"`
-	Timezone                  string     `json:"timezone" db:"timezone"`
-	MobileVerified            bool       `json:"mobile_verified" db:"mobile_verified"`
-	MobileNumber              *string    `json:"mobile_number" db:"mobile_number"`
-	PushNotificationsEnabled  bool       `json:"push_notifications_enabled" db:"push_notifications_enabled"`
-	LastLoginAt               *time.Time `json:"last_login_at" db:"last_login_at"`
-	CreatedAt                 time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt                 time.Time  `json:"updated_at" db:"updated_at"`
+	ID                       uuid.UUID  `json:"id" db:"id"`
+	Email                    string     `json:"email" db:"email"`
+	EmailVerified            bool       `json:"email_verified" db:"email_verified"`
+	PasswordHash             *string    `json:"-" db:"password_hash"`
+	FirstName                *string    `json:"first_name" db:"first_name"`
+	LastName                 *string    `json:"last_name" db:"last_name"`
+	AvatarURL                *string    `json:"avatar_url" db:"avatar_url"`
+	Status                   UserStatus `json:"status" db:"status"`
+	Locale                   string     `json:"locale" db:"locale"`
+	Timezone                 string     `json:"timezone" db:"timezone"`
+	MobileVerified           bool       `json:"mobile_verified" db:"mobile_verified"`
+	MobileNumber             *string    `json:"mobile_number" db:"mobile_number"`
+	PushNotificationsEnabled bool       `json:"push_notifications_enabled" db:"push_notifications_enabled"`
+	LastLoginAt              *time.Time `json:"last_login_at" db:"last_login_at"`
+	CreatedAt                time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // UserAuthProvider modelo de provedor de autenticação do usuário

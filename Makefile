@@ -324,3 +324,66 @@ docs: ## Gera documentação
 	cd docs && npm run build
 
 default: help
+
+# ==========================================
+# SERVIÇOS ESPECÍFICOS
+# ==========================================
+
+# Auth Service (Go)
+auth-dev: ## Inicia auth-svc em modo desenvolvimento
+	@echo "$(BLUE)Iniciando auth-svc...$(RESET)"
+	cd services/auth-svc && go run main.go
+
+auth-build: ## Build do auth-svc
+	@echo "$(BLUE)Building auth-svc...$(RESET)"
+	cd services/auth-svc && go build -o bin/auth-svc main.go
+
+auth-test: ## Testes do auth-svc
+	cd services/auth-svc && go test ./...
+
+# Prompt Service (Node.js)
+prompt-dev: ## Inicia prompt-svc em modo desenvolvimento
+	@echo "$(BLUE)Iniciando prompt-svc...$(RESET)"
+	cd services/prompt-svc && npm run dev
+
+prompt-build: ## Build do prompt-svc
+	@echo "$(BLUE)Building prompt-svc...$(RESET)"
+	cd services/prompt-svc && npm run build
+
+prompt-test: ## Testes do prompt-svc
+	cd services/prompt-svc && npm test
+
+# Builder Service (Rust)
+builder-dev: ## Inicia builder-svc em modo desenvolvimento
+	@echo "$(BLUE)Iniciando builder-svc...$(RESET)"
+	cd services/builder-svc && cargo run
+
+builder-build: ## Build do builder-svc
+	@echo "$(BLUE)Building builder-svc...$(RESET)"
+	cd services/builder-svc && cargo build --release
+
+builder-test: ## Testes do builder-svc
+	cd services/builder-svc && cargo test
+
+# Front Web (Next.js)
+web-dev: ## Inicia front-web em modo desenvolvimento
+	@echo "$(BLUE)Iniciando front-web...$(RESET)"
+	cd apps/front-web && npm run dev
+
+web-build: ## Build do front-web
+	@echo "$(BLUE)Building front-web...$(RESET)"
+	cd apps/front-web && npm run build
+
+web-test: ## Testes do front-web
+	cd apps/front-web && npm test
+
+# ==========================================
+# COMANDOS COMBINADOS
+# ==========================================
+
+build-services: auth-build prompt-build builder-build ## Build de todos os serviços
+
+test-services: auth-test prompt-test builder-test ## Testes de todos os serviços
+
+dev-backend: ## Inicia todos os serviços backend
+	make -j3 auth-dev prompt-dev builder-dev

@@ -1,6 +1,51 @@
 # Page Magic 🪄
 
-### Plataforma No-Code de Landing Pages, Blogs e Sites guiada por IA
+### Plataforma ## 🚀 Início Rápido
+
+```bash
+# Clonar o repositório
+git clone https://github.com/pagemagic/pagemagic.git
+cd pagemagic
+
+# Configurar ambiente
+cp .env.example .env
+# Editar .env com suas configurações
+
+# Inicializar infraestrutura
+make infra-up
+
+# Instalar dependências
+make install-deps
+
+# Build de todos os serviços
+make build-all
+
+# Iniciar todos os serviços
+make start-all
+```
+
+## 🧪 Status da Implementação
+
+### ✅ Concluído
+- [x] Estrutura base do projeto e documentação
+- [x] Makefile com automação completa
+- [x] Docker Compose para infraestrutura
+- [x] Schemas SQL (TimescaleDB, migrações, seed)
+- [x] Tipos TypeScript compartilhados
+- [x] Schemas JSON de validação
+- [x] Utilitários compartilhados
+- [x] **auth-svc** (Go): Serviço completo com JWT, magic links, repositórios
+- [x] **prompt-svc** (Node.js): Estrutura base, configuração, tipos
+- [x] **builder-svc** (Rust): Estrutura base, modelos, configuração
+- [x] **front-web** (Next.js): Estrutura base, configuração, layout
+
+### 🚧 Em Desenvolvimento
+- [ ] Implementação completa dos handlers e rotas
+- [ ] Serviços restantes (build-svc, host-svc, domain-svc, etc.)
+- [ ] Mobile app (React Native/Expo)
+- [ ] Testes unitários e de integração
+- [ ] Configuração de observabilidade
+- [ ] CI/CD pipelinesages, Blogs e Sites guiada por IA
 
 Page Magic é uma plataforma completa que permite aos usuários criar sites profissionais através de descrições em linguagem natural. A IA gera o site completo, o usuário edita visualmente e publica com um clique.
 

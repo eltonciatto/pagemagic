@@ -32,12 +32,12 @@ func New(cfg *config.Config) *App {
 
 func (a *App) Run() error {
 	// Configurar modo do Gin
-	if a.config.Environment == "production" {
+	if a.config.Server.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// Inicializar repositório
-	repo, err := repository.New(a.config.DatabaseURL)
+	repo, err := repository.New(a.config.DatabaseURL())
 	if err != nil {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
@@ -54,7 +54,7 @@ func (a *App) Run() error {
 
 	// Configurar servidor HTTP
 	a.server = &http.Server{
-		Addr:    fmt.Sprintf(":%s", a.config.Port),
+		Addr:    fmt.Sprintf(":%s", a.config.Server.Port),
 		Handler: router,
 	}
 
@@ -64,7 +64,7 @@ func (a *App) Run() error {
 
 	// Iniciar servidor em goroutine
 	go func() {
-		log.Printf("Auth service starting on port %s", a.config.Port)
+		log.Printf("Auth service starting on port %s", a.config.Server.Port)
 		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}

@@ -16,10 +16,10 @@ import (
 )
 
 type AuthService struct {
-	userRepo     repository.UserRepository
-	magicRepo    repository.MagicLinkRepository
-	refreshRepo  repository.RefreshTokenRepository
-	config       *config.Config
+	userRepo    repository.UserRepository
+	magicRepo   repository.MagicLinkRepository
+	refreshRepo repository.RefreshTokenRepository
+	config      *config.Config
 }
 
 func NewAuthService(repo *repository.Repository, config *config.Config) *AuthService {
