@@ -1,0 +1,323 @@
+version: '3.8'
+
+services:
+  # Core Infrastructure
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: pagemagic_postgres
+    environment:
+      POSTGRES_DB: pagemagic
+      POSTGRES_USER: pagemagic
+      POSTGRES_PASSWORD: pagemagic
+      TIMESCALEDB_TELEMETRY: off
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./infrastructure/database/migrations.sql:/docker-entrypoint-initdb.d/02-migrations.sql
+      - ./infrastructure/database/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: pagemagic_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: pagemagic_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    command: --jetstream --store_dir=/data
+    volumes:
+      - nats_data:/data
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: pagemagic_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pagemagic_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pagemagic_grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - pagemagic
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  loki:
+    image: grafana/loki:latest
+    container_name: pagemagic_loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infrastructure/monitoring/loki.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  # Core Services
+  auth-svc:
+    build:
+      context: ./services/auth-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_auth_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  prompt-svc:
+    build:
+      context: ./services/prompt-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_prompt_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "8082:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  builder-svc:
+    build:
+      context: ./services/builder-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_builder_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "8083:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  build-svc:
+    build:
+      context: ./services/build-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_build_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    ports:
+      - "8084:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - postgres
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  host-svc:
+    build:
+      context: ./services/host-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_host_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    ports:
+      - "8085:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - postgres
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  domain-svc:
+    build:
+      context: ./services/domain-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_domain_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - NAMECHEAP_API_KEY=${NAMECHEAP_API_KEY}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    ports:
+      - "8086:8080"
+    depends_on:
+      - postgres
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  meter-svc:
+    build:
+      context: ./services/meter-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_meter_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - NATS_URL=nats://nats:4222
+    ports:
+      - "8087:8080"
+    depends_on:
+      - postgres
+      - nats
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  billing-svc:
+    build:
+      context: ./services/billing-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_billing_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    ports:
+      - "8088:8080"
+    depends_on:
+      - postgres
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  i18n-svc:
+    build:
+      context: ./services/i18n-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic_i18n_svc
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://pagemagic:pagemagic@postgres:5432/pagemagic
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "8089:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  usage-proxy:
+    build:
+      context: ./services/usage-proxy
+      dockerfile: Dockerfile
+    container_name: pagemagic_usage_proxy
+    ports:
+      - "8090:80"
+    depends_on:
+      - meter-svc
+      - auth-svc
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+  # Front-end Applications
+  front-web:
+    build:
+      context: ./apps/front-web
+      dockerfile: Dockerfile
+    container_name: pagemagic_front_web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    ports:
+      - "3001:3000"
+    networks:
+      - pagemagic
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  nats_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+
+networks:
+  pagemagic:
+    driver: bridge
