@@ -12,8 +12,8 @@ import (
 	"pagemagic/host-svc/internal/services"
 
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	_ "github.com/lib/pq"
+	"github.com/rs/cors"
 )
 
 type App struct {

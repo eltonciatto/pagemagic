@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"pagemagic/host-svc/internal/models"
@@ -72,7 +71,7 @@ func (h *HostingHandler) ListSites(w http.ResponseWriter, r *http.Request) {
 func (h *HostingHandler) GetSite(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	siteID := vars["id"]
-	
+
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		http.Error(w, "User ID required", http.StatusUnauthorized)
@@ -92,7 +91,7 @@ func (h *HostingHandler) GetSite(w http.ResponseWriter, r *http.Request) {
 func (h *HostingHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	siteID := vars["id"]
-	
+
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		http.Error(w, "User ID required", http.StatusUnauthorized)
@@ -118,7 +117,7 @@ func (h *HostingHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
 func (h *HostingHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	siteID := vars["id"]
-	
+
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		http.Error(w, "User ID required", http.StatusUnauthorized)
@@ -137,7 +136,7 @@ func (h *HostingHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
 func (h *HostingHandler) GetSiteStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	siteID := vars["id"]
-	
+
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		http.Error(w, "User ID required", http.StatusUnauthorized)
@@ -177,7 +176,7 @@ func (h *HostingHandler) ServeStaticFiles() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Extrair domínio do host
 		host := r.Host
-		
+
 		// Buscar site pelo domínio
 		site, err := h.hostSvc.GetSiteByDomain(r.Context(), host)
 		if err != nil {
@@ -202,7 +201,7 @@ func (h *HostingHandler) ServeStaticFiles() http.Handler {
 func (h *HostingHandler) serveFile(w http.ResponseWriter, r *http.Request, site *models.Site) {
 	// Implementar lógica de servir arquivos do storage
 	// Por enquanto, servir página padrão
-	
+
 	path := r.URL.Path
 	if path == "/" || path == "" {
 		path = "/index.html"

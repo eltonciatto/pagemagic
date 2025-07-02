@@ -39,7 +39,7 @@ func NewCacheService(cfg *config.Config) *CacheService {
 func (s *CacheService) PurgeCache(ctx context.Context, siteID string) error {
 	// Purgar cache do site específico
 	pattern := fmt.Sprintf("site:%s:*", siteID)
-	
+
 	keys, err := s.client.Keys(ctx, pattern).Result()
 	if err != nil {
 		return fmt.Errorf("failed to get cache keys: %w", err)
@@ -68,7 +68,7 @@ func (s *CacheService) PurgeCache(ctx context.Context, siteID string) error {
 
 func (s *CacheService) GetCacheStatus(ctx context.Context, siteID string) (*models.CacheStatus, error) {
 	statusKey := fmt.Sprintf("site:%s:cache_status", siteID)
-	
+
 	data, err := s.client.Get(ctx, statusKey).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -95,7 +95,7 @@ func (s *CacheService) GetCacheStatus(ctx context.Context, siteID string) (*mode
 
 func (s *CacheService) CacheFile(ctx context.Context, siteID, path string, content []byte, contentType string) error {
 	key := fmt.Sprintf("site:%s:file:%s", siteID, path)
-	
+
 	fileData := map[string]interface{}{
 		"content":      content,
 		"content_type": contentType,
@@ -112,7 +112,7 @@ func (s *CacheService) CacheFile(ctx context.Context, siteID, path string, conte
 
 func (s *CacheService) GetCachedFile(ctx context.Context, siteID, path string) ([]byte, string, error) {
 	key := fmt.Sprintf("site:%s:file:%s", siteID, path)
-	
+
 	data, err := s.client.Get(ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -145,19 +145,19 @@ func (s *CacheService) GetCachedFile(ctx context.Context, siteID, path string) (
 
 func (s *CacheService) updateCacheStats(ctx context.Context, siteID string, hit bool) {
 	statusKey := fmt.Sprintf("site:%s:cache_status", siteID)
-	
+
 	// Usar pipeline para operações atômicas
 	pipe := s.client.Pipeline()
-	
+
 	if hit {
 		pipe.HIncrBy(ctx, statusKey, "total_hits", 1)
 	} else {
 		pipe.HIncrBy(ctx, statusKey, "total_misses", 1)
 	}
-	
+
 	pipe.HSet(ctx, statusKey, "updated_at", time.Now())
 	pipe.Expire(ctx, statusKey, s.config.Cache.TTL)
-	
+
 	pipe.Exec(ctx)
 }
 
@@ -167,7 +167,7 @@ func (s *CacheService) WarmUpCache(ctx context.Context, siteID string, files []m
 		// Simular carregamento e cache dos arquivos
 		// Em implementação real, baixaria do storage e cachear
 		cacheKey := fmt.Sprintf("site:%s:file:%s", siteID, file.Path)
-		
+
 		fileData := map[string]interface{}{
 			"path":         file.Path,
 			"content_type": file.ContentType,

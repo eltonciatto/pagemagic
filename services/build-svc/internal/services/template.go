@@ -229,7 +229,7 @@ func (s *TemplateService) SearchTemplates(ctx context.Context, query string, cat
 
 func (s *TemplateService) IncrementDownloads(ctx context.Context, templateID string) error {
 	query := `UPDATE templates SET downloads = downloads + 1 WHERE id = $1`
-	
+
 	_, err := s.db.ExecContext(ctx, query, templateID)
 	if err != nil {
 		return fmt.Errorf("failed to increment downloads: %w", err)

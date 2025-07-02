@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"pagemagic/host-svc/internal/models"
 	"pagemagic/host-svc/internal/services"
 
 	"github.com/gorilla/mux"

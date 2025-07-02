@@ -57,17 +57,17 @@ type AuthConfig struct {
 }
 
 type SSLConfig struct {
-	CertPath    string
-	KeyPath     string
-	AutoSSL     bool
-	ACMEEmail   string
-	ACMEDir     string
+	CertPath  string
+	KeyPath   string
+	AutoSSL   bool
+	ACMEEmail string
+	ACMEDir   string
 }
 
 type CacheConfig struct {
-	RedisURL     string
-	TTL          time.Duration
-	MaxMemory    string
+	RedisURL  string
+	TTL       time.Duration
+	MaxMemory string
 }
 
 type MetricsConfig struct {

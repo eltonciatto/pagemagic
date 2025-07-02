@@ -6,21 +6,21 @@ import (
 
 // BuildJob representa um job de build
 type BuildJob struct {
-	ID          string            `json:"id" db:"id"`
-	SiteID      string            `json:"site_id" db:"site_id"`
-	UserID      string            `json:"user_id" db:"user_id"`
-	Type        string            `json:"type" db:"type"` // "full", "incremental"
-	Status      string            `json:"status" db:"status"` // "pending", "building", "completed", "failed"
-	SourceType  string            `json:"source_type" db:"source_type"` // "visual_editor", "code", "template"
+	ID          string                 `json:"id" db:"id"`
+	SiteID      string                 `json:"site_id" db:"site_id"`
+	UserID      string                 `json:"user_id" db:"user_id"`
+	Type        string                 `json:"type" db:"type"`               // "full", "incremental"
+	Status      string                 `json:"status" db:"status"`           // "pending", "building", "completed", "failed"
+	SourceType  string                 `json:"source_type" db:"source_type"` // "visual_editor", "code", "template"
 	SourceData  map[string]interface{} `json:"source_data" db:"source_data"`
-	BuildConfig BuildConfig       `json:"build_config" db:"build_config"`
-	Output      BuildOutput       `json:"output" db:"output"`
-	Logs        []BuildLog        `json:"logs" db:"logs"`
-	Error       string            `json:"error" db:"error"`
-	StartedAt   time.Time         `json:"started_at" db:"started_at"`
-	EndedAt     *time.Time        `json:"ended_at" db:"ended_at"`
-	CreatedAt   time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at" db:"updated_at"`
+	BuildConfig BuildConfig            `json:"build_config" db:"build_config"`
+	Output      BuildOutput            `json:"output" db:"output"`
+	Logs        []BuildLog             `json:"logs" db:"logs"`
+	Error       string                 `json:"error" db:"error"`
+	StartedAt   time.Time              `json:"started_at" db:"started_at"`
+	EndedAt     *time.Time             `json:"ended_at" db:"ended_at"`
+	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at" db:"updated_at"`
 }
 
 // BuildConfig contém configurações de build
@@ -49,18 +49,18 @@ type BuildOptimization struct {
 
 // SEOConfig configurações de SEO
 type SEOConfig struct {
-	Title           string            `json:"title"`
-	Description     string            `json:"description"`
-	Keywords        []string          `json:"keywords"`
-	Author          string            `json:"author"`
-	Language        string            `json:"language"`
-	Canonical       string            `json:"canonical"`
-	MetaTags        map[string]string `json:"meta_tags"`
-	OpenGraph       OpenGraphConfig   `json:"open_graph"`
-	TwitterCard     TwitterCardConfig `json:"twitter_card"`
-	StructuredData  interface{}       `json:"structured_data"`
-	Sitemap         bool              `json:"sitemap"`
-	RobotsTxt       string            `json:"robots_txt"`
+	Title          string            `json:"title"`
+	Description    string            `json:"description"`
+	Keywords       []string          `json:"keywords"`
+	Author         string            `json:"author"`
+	Language       string            `json:"language"`
+	Canonical      string            `json:"canonical"`
+	MetaTags       map[string]string `json:"meta_tags"`
+	OpenGraph      OpenGraphConfig   `json:"open_graph"`
+	TwitterCard    TwitterCardConfig `json:"twitter_card"`
+	StructuredData interface{}       `json:"structured_data"`
+	Sitemap        bool              `json:"sitemap"`
+	RobotsTxt      string            `json:"robots_txt"`
 }
 
 // OpenGraphConfig configurações do Open Graph
@@ -84,18 +84,18 @@ type TwitterCardConfig struct {
 
 // PWAConfig configurações de PWA
 type PWAConfig struct {
-	Enabled          bool              `json:"enabled"`
-	Name             string            `json:"name"`
-	ShortName        string            `json:"short_name"`
-	Description      string            `json:"description"`
-	ThemeColor       string            `json:"theme_color"`
-	BackgroundColor  string            `json:"background_color"`
-	Icons            []PWAIcon         `json:"icons"`
-	StartURL         string            `json:"start_url"`
-	Display          string            `json:"display"`
-	Orientation      string            `json:"orientation"`
-	ServiceWorker    bool              `json:"service_worker"`
-	OfflineSupport   bool              `json:"offline_support"`
+	Enabled         bool      `json:"enabled"`
+	Name            string    `json:"name"`
+	ShortName       string    `json:"short_name"`
+	Description     string    `json:"description"`
+	ThemeColor      string    `json:"theme_color"`
+	BackgroundColor string    `json:"background_color"`
+	Icons           []PWAIcon `json:"icons"`
+	StartURL        string    `json:"start_url"`
+	Display         string    `json:"display"`
+	Orientation     string    `json:"orientation"`
+	ServiceWorker   bool      `json:"service_worker"`
+	OfflineSupport  bool      `json:"offline_support"`
 }
 
 // PWAIcon ícone do PWA
@@ -108,27 +108,27 @@ type PWAIcon struct {
 
 // PerformanceConfig configurações de performance
 type PerformanceConfig struct {
-	CriticalCSS     bool `json:"critical_css"`
-	PreloadFonts    bool `json:"preload_fonts"`
-	PreloadImages   bool `json:"preload_images"`
-	ResourceHints   bool `json:"resource_hints"`
-	Compression     bool `json:"compression"`
-	HTTP2Push       bool `json:"http2_push"`
-	ServiceWorker   bool `json:"service_worker"`
-	InlineSmallCSS  bool `json:"inline_small_css"`
-	InlineSmallJS   bool `json:"inline_small_js"`
+	CriticalCSS    bool `json:"critical_css"`
+	PreloadFonts   bool `json:"preload_fonts"`
+	PreloadImages  bool `json:"preload_images"`
+	ResourceHints  bool `json:"resource_hints"`
+	Compression    bool `json:"compression"`
+	HTTP2Push      bool `json:"http2_push"`
+	ServiceWorker  bool `json:"service_worker"`
+	InlineSmallCSS bool `json:"inline_small_css"`
+	InlineSmallJS  bool `json:"inline_small_js"`
 }
 
 // BuildOutput resultado do build
 type BuildOutput struct {
-	Files       []BuildFile `json:"files"`
-	Assets      []BuildFile `json:"assets"`
-	Pages       []PageInfo  `json:"pages"`
-	Stats       BuildStats  `json:"stats"`
-	Manifest    interface{} `json:"manifest"`
-	Sitemap     string      `json:"sitemap"`
-	RobotsTxt   string      `json:"robots_txt"`
-	ServiceWorker string    `json:"service_worker"`
+	Files         []BuildFile `json:"files"`
+	Assets        []BuildFile `json:"assets"`
+	Pages         []PageInfo  `json:"pages"`
+	Stats         BuildStats  `json:"stats"`
+	Manifest      interface{} `json:"manifest"`
+	Sitemap       string      `json:"sitemap"`
+	RobotsTxt     string      `json:"robots_txt"`
+	ServiceWorker string      `json:"service_worker"`
 }
 
 // BuildFile arquivo gerado no build
@@ -155,54 +155,54 @@ type PageInfo struct {
 
 // BuildStats estatísticas do build
 type BuildStats struct {
-	TotalFiles      int           `json:"total_files"`
-	TotalSize       int64         `json:"total_size"`
-	CompressedSize  int64         `json:"compressed_size"`
-	OptimizedFiles  int           `json:"optimized_files"`
-	Duration        time.Duration `json:"duration"`
-	Performance     PerformanceMetrics `json:"performance"`
+	TotalFiles     int                `json:"total_files"`
+	TotalSize      int64              `json:"total_size"`
+	CompressedSize int64              `json:"compressed_size"`
+	OptimizedFiles int                `json:"optimized_files"`
+	Duration       time.Duration      `json:"duration"`
+	Performance    PerformanceMetrics `json:"performance"`
 }
 
 // PerformanceMetrics métricas de performance
 type PerformanceMetrics struct {
-	LighthouseScore int     `json:"lighthouse_score"`
-	PageSpeedScore  int     `json:"pagespeed_score"`
-	FirstPaint      float64 `json:"first_paint"`
-	FirstContentful float64 `json:"first_contentful"`
+	LighthouseScore   int     `json:"lighthouse_score"`
+	PageSpeedScore    int     `json:"pagespeed_score"`
+	FirstPaint        float64 `json:"first_paint"`
+	FirstContentful   float64 `json:"first_contentful"`
 	LargestContentful float64 `json:"largest_contentful"`
-	CumulativeLayout float64 `json:"cumulative_layout"`
+	CumulativeLayout  float64 `json:"cumulative_layout"`
 	TimeToInteractive float64 `json:"time_to_interactive"`
 }
 
 // BuildLog log do processo de build
 type BuildLog struct {
-	Level     string    `json:"level"` // "info", "warn", "error", "debug"
-	Message   string    `json:"message"`
-	Timestamp time.Time `json:"timestamp"`
+	Level     string      `json:"level"` // "info", "warn", "error", "debug"
+	Message   string      `json:"message"`
+	Timestamp time.Time   `json:"timestamp"`
 	Data      interface{} `json:"data,omitempty"`
 }
 
 // Template configurações de template
 type Template struct {
-	ID          string                 `json:"id" db:"id"`
-	Name        string                 `json:"name" db:"name"`
-	Description string                 `json:"description" db:"description"`
-	Category    string                 `json:"category" db:"category"`
-	Framework   string                 `json:"framework" db:"framework"`
-	Preview     string                 `json:"preview" db:"preview"`
-	Thumbnail   string                 `json:"thumbnail" db:"thumbnail"`
-	Config      BuildConfig            `json:"config" db:"config"`
-	Files       []TemplateFile         `json:"files" db:"files"`
-	Variables   []TemplateVariable     `json:"variables" db:"variables"`
-	Tags        []string               `json:"tags" db:"tags"`
-	Version     string                 `json:"version" db:"version"`
-	Author      string                 `json:"author" db:"author"`
-	License     string                 `json:"license" db:"license"`
-	Featured    bool                   `json:"featured" db:"featured"`
-	Downloads   int                    `json:"downloads" db:"downloads"`
-	Rating      float64                `json:"rating" db:"rating"`
-	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at" db:"updated_at"`
+	ID          string             `json:"id" db:"id"`
+	Name        string             `json:"name" db:"name"`
+	Description string             `json:"description" db:"description"`
+	Category    string             `json:"category" db:"category"`
+	Framework   string             `json:"framework" db:"framework"`
+	Preview     string             `json:"preview" db:"preview"`
+	Thumbnail   string             `json:"thumbnail" db:"thumbnail"`
+	Config      BuildConfig        `json:"config" db:"config"`
+	Files       []TemplateFile     `json:"files" db:"files"`
+	Variables   []TemplateVariable `json:"variables" db:"variables"`
+	Tags        []string           `json:"tags" db:"tags"`
+	Version     string             `json:"version" db:"version"`
+	Author      string             `json:"author" db:"author"`
+	License     string             `json:"license" db:"license"`
+	Featured    bool               `json:"featured" db:"featured"`
+	Downloads   int                `json:"downloads" db:"downloads"`
+	Rating      float64            `json:"rating" db:"rating"`
+	CreatedAt   time.Time          `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at" db:"updated_at"`
 }
 
 // TemplateFile arquivo do template
@@ -216,14 +216,14 @@ type TemplateFile struct {
 
 // TemplateVariable variável do template
 type TemplateVariable struct {
-	Name        string      `json:"name"`
-	Type        string      `json:"type"` // "string", "number", "boolean", "color", "image", "select"
-	Label       string      `json:"label"`
-	Description string      `json:"description"`
-	Default     interface{} `json:"default"`
-	Required    bool        `json:"required"`
+	Name        string        `json:"name"`
+	Type        string        `json:"type"` // "string", "number", "boolean", "color", "image", "select"
+	Label       string        `json:"label"`
+	Description string        `json:"description"`
+	Default     interface{}   `json:"default"`
+	Required    bool          `json:"required"`
 	Options     []interface{} `json:"options,omitempty"`
-	Validation  interface{} `json:"validation,omitempty"`
+	Validation  interface{}   `json:"validation,omitempty"`
 }
 
 // Requests
@@ -236,9 +236,9 @@ type CreateBuildJobRequest struct {
 }
 
 type UpdateBuildJobRequest struct {
-	Status      *string       `json:"status,omitempty"`
-	BuildConfig *BuildConfig  `json:"build_config,omitempty"`
-	Error       *string       `json:"error,omitempty"`
+	Status      *string      `json:"status,omitempty"`
+	BuildConfig *BuildConfig `json:"build_config,omitempty"`
+	Error       *string      `json:"error,omitempty"`
 }
 
 // Responses

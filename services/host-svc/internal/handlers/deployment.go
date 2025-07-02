@@ -28,9 +28,9 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 	siteID := vars["id"]
 
 	var req struct {
-		BuildID string                     `json:"build_id"`
-		Files   []models.DeploymentFile    `json:"files"`
-		Config  models.SiteConfig          `json:"config"`
+		BuildID string                  `json:"build_id"`
+		Files   []models.DeploymentFile `json:"files"`
+		Config  models.SiteConfig       `json:"config"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

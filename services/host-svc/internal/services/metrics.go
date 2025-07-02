@@ -13,13 +13,13 @@ import (
 
 type MetricsService struct {
 	config *config.Config
-	
+
 	// Prometheus metrics
-	siteRequests   *prometheus.CounterVec
-	responseTime   *prometheus.HistogramVec
-	activeSites    prometheus.Gauge
-	deployments    *prometheus.CounterVec
-	cacheHitRate   *prometheus.GaugeVec
+	siteRequests *prometheus.CounterVec
+	responseTime *prometheus.HistogramVec
+	activeSites  prometheus.Gauge
+	deployments  *prometheus.CounterVec
+	cacheHitRate *prometheus.GaugeVec
 }
 
 func NewMetricsService(cfg *config.Config) *MetricsService {
@@ -146,7 +146,7 @@ func (s *MetricsService) GetAnalytics(ctx context.Context, siteID string, startD
 func (s *MetricsService) GetStats(ctx context.Context, siteID string) (*models.StatsResponse, error) {
 	// Implementar coleta de estatísticas gerais
 	// Combinar dados de analytics, cache, etc.
-	
+
 	analytics, err := s.GetAnalytics(ctx, siteID, time.Now().AddDate(0, 0, -7), time.Now())
 	if err != nil {
 		return nil, err

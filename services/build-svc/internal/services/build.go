@@ -245,7 +245,7 @@ func (s *BuildService) processBuildJob(ctx context.Context, job *models.BuildJob
 
 func (s *BuildService) buildFromVisualEditor(ctx context.Context, job *models.BuildJob) (*models.BuildOutput, error) {
 	s.AddBuildLog(ctx, job.ID, "info", "Building from visual editor data", nil)
-	
+
 	// Simular processo de build
 	time.Sleep(2 * time.Second)
 
@@ -284,7 +284,7 @@ func (s *BuildService) buildFromVisualEditor(ctx context.Context, job *models.Bu
 
 func (s *BuildService) buildFromCode(ctx context.Context, job *models.BuildJob) (*models.BuildOutput, error) {
 	s.AddBuildLog(ctx, job.ID, "info", "Building from code", nil)
-	
+
 	// Simular processo de build mais complexo
 	time.Sleep(5 * time.Second)
 
@@ -305,7 +305,7 @@ func (s *BuildService) buildFromCode(ctx context.Context, job *models.BuildJob) 
 
 func (s *BuildService) buildFromTemplate(ctx context.Context, job *models.BuildJob) (*models.BuildOutput, error) {
 	s.AddBuildLog(ctx, job.ID, "info", "Building from template", nil)
-	
+
 	// Simular processo de build de template
 	time.Sleep(3 * time.Second)
 

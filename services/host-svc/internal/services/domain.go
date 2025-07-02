@@ -88,7 +88,7 @@ func (s *DomainService) ListDomains(ctx context.Context, siteID string) ([]*mode
 func (s *DomainService) UpdateDomain(ctx context.Context, domainID, siteID string, updates map[string]interface{}) (*models.DomainConfig, error) {
 	// Implementar lógica de atualização de domínio
 	query := `UPDATE domain_configs SET updated_at = $1 WHERE id = $2 AND site_id = $3`
-	
+
 	_, err := s.db.ExecContext(ctx, query, time.Now(), domainID, siteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update domain: %w", err)
@@ -149,7 +149,7 @@ func (s *DomainService) VerifyDomain(ctx context.Context, domainID, siteID strin
 
 	// Implementar verificação real de DNS
 	verified := s.verifyDNSRecords(domain.Domain, domain.DNSRecords)
-	
+
 	status := "failed"
 	var verifiedAt *time.Time
 	if verified {
