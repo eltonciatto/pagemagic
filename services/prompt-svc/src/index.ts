@@ -3,13 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import { config } from './config';
-import { logger } from './utils/logger';
-import { promptRoutes } from './routes/prompts';
-import { healthRoutes } from './routes/health';
-import { metricsRoutes } from './routes/metrics';
-import { errorHandler } from './middleware/errorHandler';
-import { rateLimiter } from './middleware/rateLimiter';
+import { generateRoutes } from './routes/generate';
+
+// Simplified config for MVP
+const config = {
+  port: process.env.PORT || 3001,
+  cors: {
+    origins: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000']
+  }
+};
 
 const app = express();
 
