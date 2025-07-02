@@ -1,68 +1,50 @@
 version: '3.8'
 
 services:
-  # Database Services
+  # Database
   postgres:
     image: postgres:16
     environment:
       POSTGRES_DB: pagemagic
       POSTGRES_USER: pagemagic
-      POSTGRES_PASSWORD: pagemagic123
+      POSTGRES_PASSWORD: pagemagic_dev
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pagemagic"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - ./infrastructure/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  # TimescaleDB for metrics
   timescaledb:
     image: timescale/timescaledb:latest-pg16
     environment:
       POSTGRES_DB: metrics
-      POSTGRES_USER: pagemagic
-      POSTGRES_PASSWORD: pagemagic123
+      POSTGRES_USER: metrics
+      POSTGRES_PASSWORD: metrics_dev
     ports:
       - "5433:5432"
     volumes:
       - timescale_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pagemagic"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
+  # Redis for caching
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # Message Queue
+  # NATS JetStream
   nats:
     image: nats:2.10-alpine
     ports:
       - "4222:4222"
       - "8222:8222"
-    command: ["-js", "-m", "8222"]
+    command: ["--jetstream", "--store_dir", "/data"]
     volumes:
       - nats_data:/data
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # Storage
+  # MinIO for file storage
   minio:
     image: minio/minio:latest
     ports:
@@ -70,240 +52,146 @@ services:
       - "9001:9001"
     environment:
       MINIO_ROOT_USER: pagemagic
-      MINIO_ROOT_PASSWORD: pagemagic123
+      MINIO_ROOT_PASSWORD: pagemagic_dev
+    command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # Core Services
+  # Auth Service
   auth-svc:
     build: ./services/auth-svc
     ports:
-      - "8080:8080"
+      - "8001:8080"
     environment:
-      DB_HOST: postgres
-      DB_USER: pagemagic
-      DB_PASSWORD: pagemagic123
-      DB_NAME: pagemagic
-      REDIS_URL: redis:6379
-      JWT_SECRET: your-jwt-secret-key-here
-      PORT: 8080
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
+      JWT_SECRET: super_secret_jwt_key_dev
+      REDIS_URL: redis://redis:6379
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
+      - redis
 
+  # Prompt Service
   prompt-svc:
     build: ./services/prompt-svc
     ports:
-      - "8081:8081"
+      - "8002:3000"
     environment:
-      DB_HOST: postgres
-      DB_USER: pagemagic
-      DB_PASSWORD: pagemagic123
-      DB_NAME: pagemagic
-      NATS_URL: nats://nats:4222
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      VLLM_ENDPOINT: ${VLLM_ENDPOINT:-http://localhost:8000}
-      PORT: 8081
+      VLLM_ENDPOINT: http://vllm:8000
+      NATS_URL: nats://nats:4222
     depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
+      - nats
 
+  # Builder Service
   builder-svc:
     build: ./services/builder-svc
     ports:
-      - "8082:8082"
+      - "8003:8080"
     environment:
-      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
       REDIS_URL: redis://redis:6379
-      NATS_URL: nats://nats:4222
-      PORT: 8082
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
+      - redis
 
+  # Build Service
   build-svc:
     build: ./services/build-svc
     ports:
-      - "8083:8083"
+      - "8004:8080"
     environment:
-      DB_HOST: postgres
-      DB_USER: pagemagic
-      DB_PASSWORD: pagemagic123
-      DB_NAME: pagemagic
-      NATS_URL: nats://nats:4222
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: pagemagic
-      MINIO_SECRET_KEY: pagemagic123
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
       DOCKER_HOST: unix:///var/run/docker.sock
-      PORT: 8083
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
 
+  # Host Service
   host-svc:
     build: ./services/host-svc
     ports:
-      - "8084:8084"
+      - "8005:8080"
     environment:
-      DB_HOST: postgres
-      DB_USER: pagemagic
-      DB_PASSWORD: pagemagic123
-      DB_NAME: pagemagic
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
       DOCKER_HOST: unix:///var/run/docker.sock
-      NATS_URL: nats://nats:4222
-      PORT: 8084
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8084/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
 
+  # Domain Service
   domain-svc:
     build: ./services/domain-svc
     ports:
-      - "8085:8085"
+      - "8006:8000"
     environment:
-      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
-      GODADDY_API_KEY: ${GODADDY_API_KEY}
-      GODADDY_API_SECRET: ${GODADDY_API_SECRET}
-      PORT: 8085
     depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8085/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
 
+  # Meter Service
   meter-svc:
     build: ./services/meter-svc
     ports:
-      - "8086:8086"
+      - "8007:8080"
     environment:
-      DATABASE_URL: postgresql://pagemagic:pagemagic123@timescaledb:5432/metrics
-      NATS_URL: nats://nats:4222
+      TIMESCALE_URL: postgres://metrics:metrics_dev@timescaledb:5432/metrics
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      PORT: 8086
+      NATS_URL: nats://nats:4222
     depends_on:
-      timescaledb:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - timescaledb
+      - nats
 
-  usage-proxy:
-    build: ./services/usage-proxy
-    ports:
-      - "8087:8087"
-    environment:
-      METER_SVC_URL: http://meter-svc:8086
-    depends_on:
-      meter-svc:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8087/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
+  # Billing Service
   billing-svc:
     build: ./services/billing-svc
     ports:
-      - "8088:8088"
+      - "8008:8080"
     environment:
-      DB_HOST: postgres
-      DB_USER: pagemagic
-      DB_PASSWORD: pagemagic123
-      DB_NAME: pagemagic
-      REDIS_URL: redis:6379
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      PORT: 8088
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8088/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
 
+  # i18n Service
   i18n-svc:
     build: ./services/i18n-svc
     ports:
-      - "8089:8089"
+      - "8009:3000"
     environment:
-      DB_HOST: postgres
-      DB_USER: pagemagic
-      DB_PASSWORD: pagemagic123
-      DB_NAME: pagemagic
-      REDIS_URL: redis:6379
-      PORT: 8089
+      DATABASE_URL: postgres://pagemagic:pagemagic_dev@postgres:5432/pagemagic
+      REDIS_URL: redis://redis:6379
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8089/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - postgres
+      - redis
+
+  # Usage Proxy (Nginx + Lua)
+  usage-proxy:
+    build: ./services/usage-proxy
+    ports:
+      - "8080:80"
+    environment:
+      METER_SVC_URL: http://meter-svc:8080
+    depends_on:
+      - meter-svc
+
+  # Frontend Web
+  front-web:
+    build: ./apps/front-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: nextauth_secret_dev
+      AUTH_SVC_URL: http://auth-svc:8080
+    depends_on:
+      - usage-proxy
 
 volumes:
   postgres_data:
@@ -311,7 +199,3 @@ volumes:
   redis_data:
   nats_data:
   minio_data:
-
-networks:
-  default:
-    driver: bridge
