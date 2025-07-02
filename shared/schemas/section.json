@@ -1,0 +1,484 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pagemagic.io/schemas/section.json",
+  "title": "Section",
+  "description": "Schema for page sections",
+  "type": "object",
+  "required": ["type", "name"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["hero", "about", "services", "portfolio", "testimonials", "contact", "footer", "custom"],
+      "description": "Section type"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Section name"
+    },
+    "order_index": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Order index for section positioning"
+    },
+    "html_content": {
+      "type": "string",
+      "description": "HTML content with template variables"
+    },
+    "css_styles": {
+      "type": "string",
+      "description": "CSS styles for the section"
+    },
+    "js_scripts": {
+      "type": "string",
+      "description": "JavaScript code for the section"
+    },
+    "data": {
+      "type": "object",
+      "description": "Data for template variables",
+      "default": {}
+    },
+    "settings": {
+      "type": "object",
+      "description": "Section-specific settings",
+      "properties": {
+        "background": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["color", "gradient", "image", "video"]
+            },
+            "value": {
+              "type": "string"
+            },
+            "overlay": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "color": {
+                  "type": "string",
+                  "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        },
+        "spacing": {
+          "type": "object",
+          "properties": {
+            "padding_top": {
+              "type": "string",
+              "enum": ["none", "small", "medium", "large", "xl"]
+            },
+            "padding_bottom": {
+              "type": "string",
+              "enum": ["none", "small", "medium", "large", "xl"]
+            },
+            "margin_top": {
+              "type": "string",
+              "enum": ["none", "small", "medium", "large", "xl"]
+            },
+            "margin_bottom": {
+              "type": "string",
+              "enum": ["none", "small", "medium", "large", "xl"]
+            }
+          }
+        },
+        "animation": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "type": {
+              "type": "string",
+              "enum": ["fade-in", "slide-up", "slide-down", "slide-left", "slide-right", "zoom-in", "zoom-out"]
+            },
+            "duration": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 5,
+              "default": 0.6
+            },
+            "delay": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5,
+              "default": 0
+            }
+          }
+        },
+        "responsive": {
+          "type": "object",
+          "properties": {
+            "hide_mobile": {
+              "type": "boolean",
+              "default": false
+            },
+            "hide_tablet": {
+              "type": "boolean",
+              "default": false
+            },
+            "hide_desktop": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "default": {}
+    },
+    "is_visible": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the section is visible"
+    },
+    "lazy_loading": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable lazy loading for performance"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "default": 0,
+      "description": "Loading priority (0 = lowest, 10 = highest)"
+    },
+    "cache_duration_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 31536000,
+      "default": 3600,
+      "description": "Cache duration in seconds"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "hero"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Hero title"
+              },
+              "subtitle": {
+                "type": "string",
+                "description": "Hero subtitle"
+              },
+              "cta_text": {
+                "type": "string",
+                "description": "Call-to-action button text"
+              },
+              "cta_url": {
+                "type": "string",
+                "format": "uri",
+                "description": "Call-to-action URL"
+              },
+              "background_image": {
+                "type": "string",
+                "format": "uri",
+                "description": "Background image URL"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "about"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "image": {
+                "type": "string",
+                "format": "uri"
+              },
+              "highlights": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "services"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "subtitle": {
+                "type": "string"
+              },
+              "services": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "icon": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "portfolio"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "subtitle": {
+                "type": "string"
+              },
+              "projects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "image": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "testimonials"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "testimonials": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "company": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "avatar": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "rating": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "contact"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "subtitle": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "social_links": {
+                "type": "object",
+                "properties": {
+                  "facebook": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "twitter": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "instagram": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "linkedin": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              },
+              "form_settings": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "webhook_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": ["text", "email", "tel", "textarea", "select", "checkbox"]
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

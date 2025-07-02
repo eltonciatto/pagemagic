@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pagemagic.io/schemas/project.json",
+  "title": "Project",
+  "description": "Schema for project creation and updates",
+  "type": "object",
+  "required": ["name", "type"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Project name"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Project description"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["landing_page", "blog", "portfolio", "ecommerce", "store", "custom"],
+      "description": "Type of website"
+    },
+    "subdomain": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "minLength": 3,
+      "maxLength": 63,
+      "description": "Subdomain (pagemagic.io subdomain)"
+    },
+    "custom_domain": {
+      "type": "string",
+      "format": "hostname",
+      "description": "Custom domain name"
+    },
+    "ssl_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable SSL certificate"
+    },
+    "password_protected": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable password protection"
+    },
+    "password": {
+      "type": "string",
+      "minLength": 6,
+      "description": "Password for protected sites"
+    },
+    "seo": {
+      "type": "object",
+      "description": "SEO configuration",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 255,
+          "description": "SEO title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "SEO description"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "description": "SEO keywords"
+        },
+        "favicon_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Favicon URL"
+        },
+        "social_image_url": {
+          "type": "string",
+          "format": "uri", 
+          "description": "Social media image URL"
+        }
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "description": "Analytics configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable analytics tracking"
+        },
+        "tracking_id": {
+          "type": "string",
+          "description": "Google Analytics tracking ID"
+        },
+        "config": {
+          "type": "object",
+          "description": "Additional analytics configuration"
+        }
+      }
+    },
+    "conversion_goals": {
+      "type": "array",
+      "description": "Conversion tracking goals",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Goal name"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["page_view", "click", "form_submit", "purchase", "custom"],
+            "description": "Goal type"
+          },
+          "selector": {
+            "type": "string",
+            "description": "CSS selector for tracking"
+          },
+          "value": {
+            "type": "number",
+            "description": "Goal value"
+          }
+        }
+      }
+    },
+    "ab_testing_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable A/B testing"
+    },
+    "cache_settings": {
+      "type": "object",
+      "description": "Cache configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "ttl": {
+          "type": "integer",
+          "minimum": 300,
+          "maximum": 31536000,
+          "default": 3600,
+          "description": "Cache TTL in seconds"
+        },
+        "strategies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["browser", "cdn", "server"]
+          },
+          "default": ["browser", "cdn"]
+        },
+        "vary_headers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["Accept-Encoding", "Accept-Language"]
+        }
+      }
+    },
+    "cdn_settings": {
+      "type": "object",
+      "description": "CDN configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["cloudflare", "aws", "gcp"],
+          "default": "cloudflare"
+        },
+        "zones": {
+          "type": "object",
+          "description": "CDN zones configuration"
+        },
+        "purge_on_deploy": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "Additional project settings",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "description": "Theme name"
+        },
+        "colors": {
+          "type": "object",
+          "properties": {
+            "primary": {
+              "type": "string",
+              "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+            },
+            "secondary": {
+              "type": "string",
+              "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+            },
+            "background": {
+              "type": "string",
+              "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+            },
+            "text": {
+              "type": "string",
+              "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+            }
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "properties": {
+            "heading": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            }
+          }
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "container_width": {
+              "type": "string",
+              "enum": ["narrow", "normal", "wide", "full"]
+            },
+            "spacing": {
+              "type": "string",
+              "enum": ["compact", "normal", "spacious"]
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata"
+    }
+  },
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "password_protected": {
+        "const": true
+      }
+    }
+  },
+  "then": {
+    "required": ["password"]
+  }
+}
