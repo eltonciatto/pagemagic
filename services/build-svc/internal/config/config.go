@@ -27,6 +27,12 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
+	Host        string
+	Port        string
+	Name        string
+	User        string
+	Password    string
+	SSLMode     string
 	URL         string
 	MaxConns    int
 	MinConns    int
