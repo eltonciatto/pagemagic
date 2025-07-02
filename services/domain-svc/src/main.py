@@ -8,6 +8,7 @@ from .models.domain import DomainAvailability, DomainRegistration, Domain, DNSRe
 from .services.namecheap import NamecheapService
 from .services.dns import CloudflareService
 from .services.acme import ACMEService
+from .controllers.domain import router as domain_router
 
 # Setup logging
 settings = get_settings()
@@ -28,6 +29,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(domain_router)
 
 # Initialize services
 namecheap_service = NamecheapService(settings)
