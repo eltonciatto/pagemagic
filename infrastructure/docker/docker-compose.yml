@@ -1,0 +1,293 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # DATABASES
+  # ==========================================
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: pagemagic_postgres
+    environment:
+      POSTGRES_DB: pagemagic
+      POSTGRES_USER: pagemagic
+      POSTGRES_PASSWORD: password
+      POSTGRES_MULTIPLE_DATABASES: pagemagic,pagemagic_test
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/migrations.sql:/docker-entrypoint-initdb.d/migrations.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - pagemagic_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagemagic"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: pagemagic_timescale
+    environment:
+      POSTGRES_DB: pagemagic_metrics
+      POSTGRES_USER: pagemagic
+      POSTGRES_PASSWORD: password
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./database/timescale-init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    networks:
+      - pagemagic_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagemagic"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pagemagic_redis
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - pagemagic_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # MESSAGE BROKER
+  # ==========================================
+  
+  nats:
+    image: nats:2.10-alpine
+    container_name: pagemagic_nats
+    command: [
+      "--jetstream",
+      "--store_dir=/data",
+      "--max_file_store=10GB",
+      "--max_mem_store=1GB"
+    ]
+    volumes:
+      - nats_data:/data
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    networks:
+      - pagemagic_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # STORAGE
+  # ==========================================
+  
+  minio:
+    image: minio/minio:latest
+    container_name: pagemagic_minio
+    environment:
+      MINIO_ROOT_USER: pagemagic
+      MINIO_ROOT_PASSWORD: pagemagic123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - pagemagic_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # OBSERVABILITY
+  # ==========================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pagemagic_prometheus
+    volumes:
+      - prometheus_data:/prometheus
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./observability/prometheus/rules:/etc/prometheus/rules
+    ports:
+      - "9090:9090"
+    networks:
+      - pagemagic_network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pagemagic_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3001:3000"
+    networks:
+      - pagemagic_network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  loki:
+    image: grafana/loki:latest
+    container_name: pagemagic_loki
+    volumes:
+      - loki_data:/loki
+      - ./observability/loki/loki-config.yml:/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - pagemagic_network
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: pagemagic_promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml
+    networks:
+      - pagemagic_network
+    depends_on:
+      - loki
+    command: -config.file=/etc/promtail/config.yml
+
+  # ==========================================
+  # ARTIFICIAL INTELLIGENCE
+  # ==========================================
+  
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: pagemagic_vllm
+    environment:
+      MODEL_NAME: meta-llama/Llama-2-7b-chat-hf
+      MAX_MODEL_LEN: 4096
+      GPU_MEMORY_UTILIZATION: 0.9
+    volumes:
+      - vllm_cache:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    networks:
+      - pagemagic_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # DEVELOPMENT TOOLS
+  # ==========================================
+  
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: pagemagic_mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - pagemagic_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pagemagic_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pagemagic.io
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - pagemagic_network
+    depends_on:
+      - postgres
+
+# ==========================================
+# NETWORKS
+# ==========================================
+
+networks:
+  pagemagic_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+# ==========================================
+# VOLUMES
+# ==========================================
+
+volumes:
+  postgres_data:
+    driver: local
+  timescale_data:
+    driver: local
+  redis_data:
+    driver: local
+  nats_data:
+    driver: local
+  minio_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+  vllm_cache:
+    driver: local
+  pgadmin_data:
+    driver: local
