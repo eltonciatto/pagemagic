@@ -1,1 +1,181 @@
-# pagemagic
+# Page Magic 🪄
+
+### Plataforma No-Code de Landing Pages, Blogs e Sites guiada por IA
+
+Page Magic é uma plataforma completa que permite aos usuários criar sites profissionais através de descrições em linguagem natural. A IA gera o site completo, o usuário edita visualmente e publica com um clique.
+
+## 🏗️ Arquitetura
+
+### Front-ends
+- **front-web**: Next.js 15.3 + React 19 (Desktop/PWA)
+- **mobile-app**: React Native 0.74 + Expo SDK 51 (iOS/Android)
+
+### Microserviços
+- **auth-svc** (Go): Autenticação magic-link + OAuth
+- **prompt-svc** (Node.js): Orquestração de prompts IA (LangChain)
+- **builder-svc** (Rust): Conversão JSON → AST → HTML/React
+- **build-svc** (Go): Geração de imagens Docker + Turbopack
+- **host-svc** (Go): Gerenciamento de contêineres (Docker Swarm)
+- **domain-svc** (Python): Compra de domínios + DNS/ACME
+- **usage-proxy** (Nginx + Lua): Coleta de métricas de uso
+- **meter-svc** (Rust): Agregação de eventos + Stripe Meters
+- **billing-svc** (Go): Webhooks Stripe + controle de créditos
+- **i18n-svc** (Node.js): Gerenciamento de traduções
+
+### Infraestrutura
+- **Database**: PostgreSQL 16 + TimescaleDB
+- **Message Broker**: NATS JetStream
+- **Observability**: Prometheus + Grafana + Loki
+- **Deploy**: Docker Swarm + GitOps (Flux)
+- **Edge**: Cloudflare + Workers
+- **AI**: vLLM cluster (Llama-3 70B) + OpenAI/Claude adapters
+
+## 🚀 Início Rápido
+
+```bash
+# Clonar o repositório
+git clone https://github.com/pagemagic/pagemagic.git
+cd pagemagic
+
+# Configurar ambiente
+cp .env.example .env
+# Editar .env com suas configurações
+
+# Inicializar infraestrutura
+make infra-up
+
+# Build de todos os serviços
+make build-all
+
+# Iniciar todos os serviços
+make start-all
+```
+
+## 📁 Estrutura do Projeto
+
+```
+pagemagic/
+├── apps/
+│   ├── front-web/          # Next.js web app
+│   └── mobile-app/         # React Native app
+├── services/
+│   ├── auth-svc/           # Serviço de autenticação
+│   ├── prompt-svc/         # Orquestração IA
+│   ├── builder-svc/        # Construção de sites
+│   ├── build-svc/          # Build Docker
+│   ├── host-svc/           # Hosting
+│   ├── domain-svc/         # Domínios
+│   ├── usage-proxy/        # Proxy de métricas
+│   ├── meter-svc/          # Medição
+│   ├── billing-svc/        # Cobrança
+│   └── i18n-svc/          # Internacionalização
+├── infrastructure/
+│   ├── database/           # Schemas SQL
+│   ├── docker/            # Docker configs
+│   ├── k8s/               # Kubernetes manifests
+│   └── observability/     # Monitoring configs
+└── shared/
+    ├── types/             # TypeScript types
+    ├── schemas/           # JSON schemas
+    └── utils/             # Utilities comuns
+```
+
+## 🛠️ Comandos de Desenvolvimento
+
+```bash
+# Desenvolvimento
+make dev-web              # Inicia front-web em modo dev
+make dev-mobile           # Inicia mobile-app com Expo
+make dev-service SVC=auth # Inicia serviço específico
+
+# Build
+make build SERVICE=auth   # Build de serviço específico
+make build-all           # Build de todos os serviços
+
+# Testes
+make test                # Executa todos os testes
+make test-e2e           # Testes end-to-end
+make test-mobile        # Testes mobile (Detox)
+
+# Deploy
+make deploy-staging     # Deploy para staging
+make deploy-prod       # Deploy para produção
+```
+
+## 🔧 Configuração
+
+### Variáveis de Ambiente
+
+Copie `.env.example` para `.env` e configure:
+
+- Database URLs (PostgreSQL, TimescaleDB)
+- API keys (OpenAI, Stripe, Cloudflare)
+- JWT secrets
+- Message broker URLs (NATS)
+
+### IA e Modelos
+
+Configure os provedores de IA em `services/prompt-svc/config/`:
+- vLLM local (Llama-3 70B)
+- OpenAI API
+- Anthropic Claude
+
+## 📊 Monitoramento
+
+- **Grafana**: http://localhost:3000
+- **Prometheus**: http://localhost:9090
+- **Loki**: http://localhost:3100
+
+## 🔒 Segurança
+
+- CSP rigorosa (zero inline JS)
+- OWASP Top-10 compliance
+- PCI-DSS (pagamentos via Stripe)
+- LGPD/GDPR (criptografia PII)
+- TLS 1.3 obrigatório
+
+## 📱 Mobile
+
+O app móvel inclui:
+- Login/cadastro
+- Geração via IA
+- Editor visual (WebView + bridge)
+- Preview em tempo real
+- Push notifications
+- Pagamentos in-app (Stripe)
+- Deep linking
+- Modo offline
+
+## 💰 Modelo de Negócio
+
+Medição via Stripe Meters:
+- **Gerações**: Contagem de sites gerados
+- **Tokens IA**: Tokens consumidos
+- **Container Hours**: Horas de hosting
+- **Storage**: GB de armazenamento
+
+## 🧪 Testes
+
+- **Unit**: Jest + Vitest
+- **Integration**: Supertest
+- **E2E Web**: Playwright
+- **E2E Mobile**: Detox
+- **Load**: K6
+
+## 📝 Licença
+
+MIT License - veja [LICENSE](LICENSE) para detalhes.
+
+## 🤝 Contribuindo
+
+1. Fork o projeto
+2. Crie sua feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📞 Suporte
+
+- 📧 Email: suporte@pagemagic.io
+- 💬 Discord: [Page Magic Community](https://discord.gg/pagemagic)
+- 📚 Docs: [docs.pagemagic.io](https://docs.pagemagic.io)
