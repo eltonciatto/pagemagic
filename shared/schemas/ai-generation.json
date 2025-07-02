@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pagemagic.io/schemas/ai-generation.json",
+  "title": "AI Generation Request",
+  "description": "Schema for AI generation requests",
+  "type": "object",
+  "required": ["prompt"],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the project to generate content for"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 5000,
+      "description": "The prompt text for AI generation"
+    },
+    "model": {
+      "type": "string",
+      "enum": [
+        "llama-3-70b",
+        "llama-3-8b", 
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-3.5-turbo",
+        "claude-3-sonnet",
+        "claude-3-opus",
+        "claude-3-haiku"
+      ],
+      "default": "llama-3-70b",
+      "description": "AI model to use for generation"
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "default": "en",
+      "description": "Locale for content generation (e.g., 'en', 'pt-BR')"
+    },
+    "context": {
+      "type": "object",
+      "description": "Additional context data for generation",
+      "properties": {
+        "industry": {
+          "type": "string",
+          "description": "Industry or business sector"
+        },
+        "target_audience": {
+          "type": "string",
+          "description": "Target audience description"
+        },
+        "brand_voice": {
+          "type": "string",
+          "enum": ["professional", "casual", "friendly", "authoritative", "playful"],
+          "description": "Brand voice tone"
+        },
+        "color_preferences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+          },
+          "description": "Preferred colors in hex format"
+        },
+        "existing_content": {
+          "type": "string",
+          "description": "Existing content to build upon"
+        }
+      }
+    },
+    "template_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of prompt template to use"
+    },
+    "generation_mode": {
+      "type": "string",
+      "enum": ["standard", "iterative", "collaborative"],
+      "default": "standard",
+      "description": "Generation mode"
+    },
+    "parent_generation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Parent generation ID for iterative mode"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Model-specific parameters",
+      "properties": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.7,
+          "description": "Creativity level (0 = deterministic, 2 = very creative)"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 8000,
+          "default": 2000,
+          "description": "Maximum tokens to generate"
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.9,
+          "description": "Nucleus sampling parameter"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
