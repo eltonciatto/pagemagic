@@ -1,0 +1,300 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: pagemagic-postgres
+    environment:
+      POSTGRES_DB: pagemagic
+      POSTGRES_USER: pagemagic
+      POSTGRES_PASSWORD: pagemagic123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./infrastructure/database/migrations.sql:/docker-entrypoint-initdb.d/02-migrations.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagemagic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # TimescaleDB for metrics
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: pagemagic-timescaledb
+    environment:
+      POSTGRES_DB: pagemagic_metrics
+      POSTGRES_USER: pagemagic
+      POSTGRES_PASSWORD: pagemagic123
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./infrastructure/database/timescale-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagemagic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: pagemagic-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # NATS JetStream for messaging
+  nats:
+    image: nats:2.10-alpine
+    container_name: pagemagic-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js", "-m", "8222"]
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO for object storage
+  minio:
+    image: minio/minio:latest
+    container_name: pagemagic-minio
+    environment:
+      MINIO_ROOT_USER: pagemagic
+      MINIO_ROOT_PASSWORD: pagemagic123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pagemagic-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pagemagic-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+
+  # Nginx for reverse proxy and load balancing
+  nginx:
+    image: nginx:alpine
+    container_name: pagemagic-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - auth-svc
+      - prompt-svc
+      - builder-svc
+      - build-svc
+      - host-svc
+      - domain-svc
+
+  # Services
+  auth-svc:
+    build:
+      context: ./services/auth-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-auth-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      JWT_SECRET: your-jwt-secret-here
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  prompt-svc:
+    build:
+      context: ./services/prompt-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-prompt-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8002:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  builder-svc:
+    build:
+      context: ./services/builder-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-builder-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  build-svc:
+    build:
+      context: ./services/build-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-build-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      DOCKER_HOST: unix:///var/run/docker.sock
+    ports:
+      - "8004:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  host-svc:
+    build:
+      context: ./services/host-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-host-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      DOCKER_HOST: unix:///var/run/docker.sock
+    ports:
+      - "8005:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  domain-svc:
+    build:
+      context: ./services/domain-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-domain-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+    ports:
+      - "8006:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  meter-svc:
+    build:
+      context: ./services/meter-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-meter-svc
+    environment:
+      TIMESCALE_URL: postgresql://pagemagic:pagemagic123@timescaledb:5432/pagemagic_metrics
+      NATS_URL: nats://nats:4222
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+    ports:
+      - "8007:8080"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  billing-svc:
+    build:
+      context: ./services/billing-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-billing-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+    ports:
+      - "8008:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  i18n-svc:
+    build:
+      context: ./services/i18n-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-i18n-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8009:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  timescale_data:
+  redis_data:
+  nats_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: pagemagic
+    driver: bridge

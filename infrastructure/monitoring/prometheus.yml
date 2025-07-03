@@ -1,0 +1,151 @@
+# Page Magic - Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'pagemagic'
+    environment: 'development'
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Docker metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['localhost:9323']
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # NATS
+  - job_name: 'nats'
+    static_configs:
+      - targets: ['nats:8222']
+
+  # MinIO
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: /minio/v2/metrics/cluster
+
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+
+  # Page Magic Services
+  - job_name: 'auth-svc'
+    static_configs:
+      - targets: ['auth-svc:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'prompt-svc'
+    static_configs:
+      - targets: ['prompt-svc:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'builder-svc'
+    static_configs:
+      - targets: ['builder-svc:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'build-svc'
+    static_configs:
+      - targets: ['build-svc:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'host-svc'
+    static_configs:
+      - targets: ['host-svc:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'domain-svc'
+    static_configs:
+      - targets: ['domain-svc:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'meter-svc'
+    static_configs:
+      - targets: ['meter-svc:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  - job_name: 'billing-svc'
+    static_configs:
+      - targets: ['billing-svc:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+
+  - job_name: 'i18n-svc'
+    static_configs:
+      - targets: ['i18n-svc:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+
+  # Frontend
+  - job_name: 'front-web'
+    static_configs:
+      - targets: ['front-web:3000']
+    metrics_path: '/api/metrics'
+    scrape_interval: 30s
+
+  # Usage Proxy
+  - job_name: 'usage-proxy'
+    static_configs:
+      - targets: ['usage-proxy:80']
+    metrics_path: '/nginx_status'
+    scrape_interval: 30s
+
+  # Blackbox exporter for external monitoring
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://localhost:80/health
+        - https://pagemagic.io
+        - https://api.pagemagic.io/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Cadvisor for container monitoring
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s

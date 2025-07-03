@@ -4,11 +4,11 @@
 
 Page Magic é uma plataforma completa que permite aos usuários criar sites profissionais através de descrições em linguagem natural. A IA gera o site completo, o usuário edita visualmente e publica com um clique.
 
-## � Status do Projeto
+## 🎯 Status do Projeto
 
-**🎯 Progresso Geral:** 40% implementado | 60% pendente  
-**🏗️ Arquitetura:** ✅ 100% completa  
-**⚡ Funcionalidades Core:** ❌ 30% funcionais  
+**�️ Progresso Geral:** 45% implementado | 55% pendente
+**⚡ Arquitetura:** ✅ 100% completa
+**🔧 Funcionalidades Core:** ⚠️ 35% funcionais
 
 ### 📋 Documentação de Status
 - 📄 [**Análise Detalhada de Pendências**](MISSING_IMPLEMENTATIONS.md) - Análise completa do que falta
@@ -16,28 +16,28 @@ Page Magic é uma plataforma completa que permite aos usuários criar sites prof
 - 📊 [**Relatório de Progresso Completo**](PROGRESS_REPORT.md) - Status detalhado de cada serviço
 - 📈 [**Status de Implementação**](STATUS.md) - Overview de todos os componentes
 
-## �🚀 Início Rápido
+## 🚀 Início Rápido
 
 ```bash
 # Clonar o repositório
-git clone https://github.com/pagemagic/pagemagic.git
+git clone https://github.com/eltonciatto/pagemagic.git
 cd pagemagic
 
 # Configurar ambiente
 cp .env.example .env
 # Editar .env com suas configurações
 
+# Instalar dependências
+npm install
+
 # Inicializar infraestrutura
 make infra-up
-
-# Instalar dependências
-make install-deps
 
 # Build de todos os serviços
 make build-all
 
-# Iniciar todos os serviços
-make start-all
+# Iniciar em modo desenvolvimento
+make dev
 ```
 
 ## 🎯 Status de Implementação
@@ -48,6 +48,8 @@ make start-all
 - [x] **Makefile completo** - Automação de build/dev/test/deploy
 - [x] **Schemas e tipos** - TypeScript types, validação, utilitários
 - [x] **Documentação técnica** - Specs completas e guias
+- [x] **CI/CD Pipeline** - GitHub Actions workflow completo
+- [x] **Configurações** - Nginx, Prometheus, Docker Compose
 
 ### ✅ **IMPLEMENTADO** - Serviços Base (Estrutura)
 - [x] **auth-svc** (Go) - Autenticação JWT, magic links, repositórios
@@ -57,7 +59,7 @@ make start-all
 - [x] **domain-svc** (Python) - Base DNS/SSL management
 - [x] **front-web** (Next.js) - Interface base e componentes
 
-### � **PENDENTE** - Funcionalidades Core
+### ⚠️ **EM PROGRESSO** - Funcionalidades Core
 - [ ] **Integração IA real** - vLLM cluster + streaming
 - [ ] **Pipeline de build** - JSON → AST → HTML/React
 - [ ] **Orquestração containers** - Docker Swarm + deploy
@@ -66,10 +68,10 @@ make start-all
 - [ ] **App mobile** - React Native navigation + features
 
 ### ❌ **FALTANDO** - Infraestrutura Produção
-- [ ] **Observabilidade** - Prometheus + Grafana + tracing
+- [ ] **Observabilidade completa** - Grafana dashboards + alerting
 - [ ] **Testes** - Unit + integration + E2E (0% coverage)
-- [ ] **CI/CD** - GitHub Actions + GitOps
-- [ ] **Security** - CSP + WAF + compliance
+- [ ] **Security hardening** - CSP + WAF + compliance
+- [ ] **Performance optimization** - Caching + CDN setup
 
 ## 🏗️ Arquitetura
 

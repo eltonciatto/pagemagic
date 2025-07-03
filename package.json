@@ -1,0 +1,59 @@
+{
+  "name": "pagemagic",
+  "version": "1.0.0",
+  "description": "Plataforma No-Code de Landing Pages, Blogs e Sites guiada por IA",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/prompt-svc",
+    "services/i18n-svc",
+    "services/builder-svc",
+    "shared"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
+    "docker:build": "make build-all",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "setup": "./scripts/setup.sh",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@turbo/gen": "^1.12.4",
+    "turbo": "^1.12.4",
+    "prettier": "^3.2.5",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "typescript": "^5.4.2"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eltonciatto/pagemagic.git"
+  },
+  "keywords": [
+    "no-code",
+    "landing-page",
+    "ai",
+    "website-builder",
+    "drag-and-drop"
+  ],
+  "author": "Page Magic Team",
+  "license": "MIT",
+  "packageManager": "npm@10.5.0"
+}
