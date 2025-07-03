@@ -1,0 +1,208 @@
+# Istio Service Mesh Configuration for Page Magic
+
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: pagemagic-control-plane
+  namespace: istio-system
+spec:
+  values:
+    global:
+      meshID: pagemagic-mesh
+      multiCluster:
+        clusterName: pagemagic-primary
+      network: pagemagic-network
+  components:
+    pilot:
+      k8s:
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 1000m
+            memory: 4Gi
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          type: LoadBalancer
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1Gi
+        hpaSpec:
+          minReplicas: 2
+          maxReplicas: 10
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 80
+---
+# Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: pagemagic-gateway
+  namespace: pagemagic-prod
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: pagemagic-tls-cert
+    hosts:
+    - "*.pagemagic.com"
+    - "pagemagic.com"
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.pagemagic.com"
+    - "pagemagic.com"
+    tls:
+      httpsRedirect: true
+---
+# VirtualService for traffic routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: pagemagic-routes
+  namespace: pagemagic-prod
+spec:
+  hosts:
+  - "pagemagic.com"
+  - "app.pagemagic.com"
+  gateways:
+  - pagemagic-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/auth"
+    route:
+    - destination:
+        host: auth-svc.pagemagic-prod.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: "/api/v1/generate"
+    route:
+    - destination:
+        host: prompt-svc.pagemagic-prod.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+  - match:
+    - uri:
+        prefix: "/api/v1/build"
+    route:
+    - destination:
+        host: builder-svc.pagemagic-prod.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 120s
+  - match:
+    - uri:
+        prefix: "/api/v1/deploy"
+    route:
+    - destination:
+        host: host-svc.pagemagic-prod.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 300s
+  - match:
+    - uri:
+        prefix: "/api/v1/billing"
+    route:
+    - destination:
+        host: billing-svc.pagemagic-prod.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 30s
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: front-web.pagemagic-prod.svc.cluster.local
+        port:
+          number: 3000
+---
+# DestinationRule for load balancing and circuit breaking
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: pagemagic-destination-rules
+  namespace: pagemagic-prod
+spec:
+  host: "*.pagemagic-prod.svc.cluster.local"
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 5
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+    loadBalancer:
+      simple: LEAST_CONN
+---
+# Security Policy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: pagemagic-mtls
+  namespace: pagemagic-prod
+spec:
+  mtls:
+    mode: STRICT
+---
+# Authorization Policy
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: pagemagic-authz
+  namespace: pagemagic-prod
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/pagemagic-prod/sa/default"]
+  - to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]

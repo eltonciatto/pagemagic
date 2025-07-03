@@ -1,0 +1,75 @@
+# Page Magic - Kubernetes Enterprise Setup
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pagemagic-prod
+  labels:
+    environment: production
+    app.kubernetes.io/name: pagemagic
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pagemagic-staging
+  labels:
+    environment: staging
+    app.kubernetes.io/name: pagemagic
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pagemagic-dev
+  labels:
+    environment: development
+    app.kubernetes.io/name: pagemagic
+---
+# Network Policies for micro-segmentation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pagemagic-default-deny
+  namespace: pagemagic-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Allow internal service communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pagemagic-internal-allow
+  namespace: pagemagic-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: pagemagic
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/name: pagemagic
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: pagemagic
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/name: pagemagic
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: pagemagic
+  - to: {} # Allow external egress
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP 
+      port: 80
+    - protocol: UDP
+      port: 53

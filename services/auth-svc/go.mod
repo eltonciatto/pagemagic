@@ -15,6 +15,17 @@ require (
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
+	golang.org/x/oauth2 v0.15.0
+	github.com/pquerna/otp v1.4.0
+	gorm.io/driver/postgres v1.5.4
+	gorm.io/gorm v1.25.5
+	github.com/casbin/casbin/v2 v2.81.0
+	github.com/casbin/gorm-adapter/v3 v3.20.0
+	github.com/gin-contrib/cors v1.5.0
+	github.com/prometheus/client_golang v1.17.0
+	github.com/twilio/twilio-go v1.18.2
+	github.com/aws/aws-sdk-go v1.48.16
+	github.com/gorilla/websocket v1.5.1
 )
 
 require (

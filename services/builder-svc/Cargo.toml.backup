@@ -1,0 +1,31 @@
+[package]
+name = "builder-svc"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "main-mvp"
+path = "src/main-mvp.rs"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "compression", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Template engines
+handlebars = "4.5"
+tera = "1.19"
+minijinja = "1.0"
+
+# HTML/CSS processing
+scraper = "0.18"
+css-parser = "0.29"
+lightningcss = "1.0"
+[dev-dependencies]
+tokio-test = "0.4"

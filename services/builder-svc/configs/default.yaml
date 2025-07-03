@@ -1,0 +1,204 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+  max_connections: 1000
+  keep_alive: 60
+  timeout: 30
+  graceful_shutdown_timeout: 30
+
+database:
+  url: "postgresql://pagemagic:pagemagic@localhost:5432/pagemagic"
+  max_connections: 10
+  min_connections: 1
+  acquire_timeout: 30
+  idle_timeout: 600
+  max_lifetime: 3600
+  migration_auto: true
+
+redis:
+  url: "redis://localhost:6379"
+  pool_size: 10
+  connection_timeout: 5
+  command_timeout: 5
+  retry_attempts: 3
+  retry_delay: 1000
+
+observability:
+  metrics:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+    collection_interval: 15
+  tracing:
+    enabled: true
+    level: "info"
+    format: "json"
+    sample_rate: 0.1
+  jaeger:
+    enabled: false
+    endpoint: "http://localhost:14268/api/traces"
+    service_name: "builder-svc"
+    sample_rate: 0.1
+  logging:
+    level: "info"
+    format: "json"
+    output: "stdout"
+    file_rotation: true
+    max_file_size: 104857600  # 100MB
+    max_files: 10
+
+auth:
+  jwt_secret: "super_secret_jwt_key_change_in_production_32_chars_minimum"
+  jwt_expiry: 3600  # 1 hour
+  refresh_token_expiry: 2592000  # 30 days
+  bcrypt_cost: 12
+  max_login_attempts: 5
+  lockout_duration: 900  # 15 minutes
+  session_timeout: 3600  # 1 hour
+
+builder:
+  max_project_size: 104857600  # 100MB
+  max_assets_per_project: 1000
+  max_concurrent_builds: 10
+  build_timeout: 300  # 5 minutes
+  cache_enabled: true
+  cache_ttl: 3600  # 1 hour
+  optimization_enabled: true
+  real_time_enabled: true
+  collaboration_enabled: true
+  version_control_enabled: true
+  ai_assistance_enabled: true
+  theme_customization_enabled: true
+  responsive_design_enabled: true
+  accessibility_checks_enabled: true
+  performance_optimization_enabled: true
+  seo_optimization_enabled: true
+
+storage:
+  provider: "local"
+  base_path: "./storage"
+  max_file_size: 10485760  # 10MB
+  allowed_extensions:
+    - "jpg"
+    - "jpeg"
+    - "png"
+    - "gif"
+    - "svg"
+    - "webp"
+    - "ico"
+    - "css"
+    - "js"
+    - "json"
+    - "xml"
+    - "woff"
+    - "woff2"
+    - "ttf"
+    - "eot"
+  compression_enabled: true
+  cdn_enabled: false
+  cdn_url: ""
+  backup_enabled: true
+  backup_retention: 30  # 30 days
+
+external_services:
+  openai:
+    api_key: ""
+    model: "gpt-4"
+    max_tokens: 4000
+    temperature: 0.7
+    timeout: 30
+    rate_limit: 100
+  stripe:
+    secret_key: ""
+    publishable_key: ""
+    webhook_secret: ""
+    api_version: "2023-10-16"
+  sendgrid:
+    api_key: ""
+    from_email: "noreply@pagemagic.com"
+    from_name: "Page Magic"
+    template_id: ""
+  github:
+    token: ""
+    webhook_secret: ""
+    app_id: ""
+    private_key: ""
+  docker:
+    registry_url: "docker.io"
+    username: ""
+    password: ""
+    build_timeout: 600  # 10 minutes
+    max_build_memory: 2147483648  # 2GB
+    max_build_cpu: 2.0
+  kubernetes:
+    config_path: "~/.kube/config"
+    namespace: "pagemagic"
+    cluster_name: "pagemagic-cluster"
+    registry_secret: "registry-secret"
+    resource_limits:
+      cpu: "1000m"
+      memory: "1Gi"
+      storage: "10Gi"
+
+security:
+  cors_origins:
+    - "*"
+  csrf_protection: true
+  security_headers: true
+  content_security_policy: "default-src 'self'"
+  rate_limiting_enabled: true
+  ip_whitelist: []
+  encryption_key: "super_secret_encryption_key_32_chars"
+  audit_logging: true
+  vulnerability_scanning: false
+
+features:
+  ai_generation: true
+  real_time_collaboration: true
+  version_control: true
+  analytics: true
+  a_b_testing: true
+  multi_language: true
+  themes: true
+  plugins: true
+  marketplace: true
+  white_label: true
+  enterprise_features: true
+  mobile_app: true
+  offline_mode: true
+  pwa_support: true
+  advanced_seo: true
+  e_commerce: true
+  cms_integration: true
+  third_party_integrations: true
+  custom_domains: true
+  ssl_certificates: true
+  backup_restore: true
+  monitoring_dashboard: true
+  user_management: true
+  team_collaboration: true
+  project_templates: true
+  asset_library: true
+  form_builder: true
+  database_integration: true
+  api_builder: true
+  serverless_functions: true
+  headless_cms: true
+  multi_site_management: true
+
+rate_limiting:
+  enabled: true
+  requests_per_minute: 100
+  burst_size: 10
+  window_size: 60
+  cleanup_interval: 300
+  redis_enabled: true
+
+websocket:
+  enabled: true
+  max_connections: 1000
+  heartbeat_interval: 30
+  max_message_size: 1048576  # 1MB
+  buffer_size: 1024
+  compression_enabled: true
