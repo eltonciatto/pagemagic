@@ -607,9 +607,112 @@ export interface CacheInvalidation {
 }
 
 // ==========================================
+// EDITOR TYPES
+// ==========================================
+
+export type ComponentType =
+  | 'text'
+  | 'heading'
+  | 'image'
+  | 'button'
+  | 'container'
+  | 'grid'
+  | 'form'
+  | 'input'
+  | 'textarea'
+  | 'select'
+  | 'video'
+  | 'iframe'
+  | 'spacer'
+  | 'divider'
+  | 'icon'
+  | 'carousel'
+  | 'modal'
+  | 'tabs'
+  | 'accordion'
+  | 'navbar'
+  | 'footer'
+  | 'sidebar';
+
+export interface Component {
+  id: string;
+  type: ComponentType;
+  props: Record<string, any>;
+  styles: Record<string, any>;
+  children: Component[];
+  parent_id?: string;
+  order_index?: number;
+}
+
+export interface ComponentProperty {
+  name: string;
+  type: 'text' | 'number' | 'boolean' | 'color' | 'select' | 'file' | 'array';
+  label: string;
+  description?: string;
+  default?: any;
+  options?: Array<{ label: string; value: any }>;
+  required?: boolean;
+  validation?: {
+    min?: number;
+    max?: number;
+    pattern?: string;
+    message?: string;
+  };
+}
+
+export interface Theme {
+  id: string;
+  name: string;
+  description?: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+    textSecondary: string;
+    border: string;
+    success: string;
+    warning: string;
+    error: string;
+  };
+  typography: {
+    fontFamily: string;
+    headingFontFamily?: string;
+    fontSizes: Record<string, string>;
+    fontWeights: Record<string, number>;
+    lineHeights: Record<string, number>;
+  };
+  spacing: Record<string, string>;
+  borderRadius: Record<string, string>;
+  shadows: Record<string, string>;
+  breakpoints: {
+    sm: string;
+    md: string;
+    lg: string;
+    xl: string;
+  };
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  thumbnail_url?: string;
+  preview_url?: string;
+  is_premium: boolean;
+  tags: string[];
+  sections: Section[];
+  theme: Theme;
+  metadata: JSON;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+// ==========================================
 // EXPORT ALL TYPES
 // ==========================================
 
-export type {
-  // Add any additional type exports here
-};
+export type { };

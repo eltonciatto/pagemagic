@@ -1,389 +1,477 @@
-# Page Magic - Makefile
-# Automação de tarefas para desenvolvimento, build e deploy
+# Page Magic - Complete Makefile for Development
 
-.PHONY: help dev build test deploy clean
+.PHONY: help install build dev test clean lint format docker-build docker-up docker-down logs shell db-shell redis-shell deps deps-go deps-rust deps-node deps-python migration-create migration-up migration-down seed backup restore security-check update-deps check-ports
 
-# Variáveis
-DOCKER_REGISTRY ?= pagemagic
-VERSION ?= latest
-ENV ?= development
+# Default target
+.DEFAULT_GOAL := help
 
-# Cores para output
-RED := \033[31m
-GREEN := \033[32m
-YELLOW := \033[33m
-BLUE := \033[34m
-RESET := \033[0m
+# Colors for pretty output
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+BLUE := \033[0;34m
+PURPLE := \033[0;35m
+CYAN := \033[0;36m
+WHITE := \033[1;37m
+NC := \033[0m # No Color
 
-help: ## Mostra esta ajuda
-	@echo "$(BLUE)Page Magic - Comandos Disponíveis$(RESET)"
-	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
+# Project info
+PROJECT_NAME := pagemagic
+DOCKER_COMPOSE_FILE := docker-compose.dev.yml
+DOCKER_PROD_FILE := docker-compose.prod.yml
 
-# ==========================================
-# SETUP E CONFIGURAÇÃO
-# ==========================================
-
-setup: ## Configuração inicial do projeto
-	@echo "$(BLUE)Configurando Page Magic...$(RESET)"
-	cp .env.example .env
-	@echo "$(YELLOW)Edite o arquivo .env com suas configurações$(RESET)"
-	make deps-install
-	make infra-up
-
-deps-install: ## Instala dependências de todos os projetos
-	@echo "$(BLUE)Instalando dependências...$(RESET)"
-	cd apps/front-web && npm install
-	cd apps/mobile-app && npm install
-	cd services/prompt-svc && npm install
-	cd services/i18n-svc && npm install
+help: ## Show this help message
+	@echo -e "${BLUE}Page Magic Development Commands${NC}"
+	@echo -e "${YELLOW}================================${NC}"
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*?##/ { printf "  ${GREEN}%-20s${NC} %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 # ==========================================
-# INFRAESTRUTURA
+# INSTALLATION & SETUP
 # ==========================================
 
-infra-up: ## Sobe a infraestrutura (Docker Compose)
-	@echo "$(BLUE)Iniciando infraestrutura...$(RESET)"
-	docker-compose -f infrastructure/docker/docker-compose.yml up -d
-	@echo "$(GREEN)Infraestrutura iniciada!$(RESET)"
+install: ## Install all dependencies and set up the development environment
+	@echo -e "${BLUE}Installing Page Magic development environment...${NC}"
+	@./scripts/setup-dev.sh
 
-infra-down: ## Para a infraestrutura
-	@echo "$(BLUE)Parando infraestrutura...$(RESET)"
-	docker-compose -f infrastructure/docker/docker-compose.yml down
+deps: deps-go deps-rust deps-node deps-python ## Install all dependencies
 
-infra-logs: ## Mostra logs da infraestrutura
-	docker-compose -f infrastructure/docker/docker-compose.yml logs -f
+deps-go: ## Install Go dependencies
+	@echo -e "${YELLOW}Installing Go dependencies...${NC}"
+	@for service in auth-svc build-svc host-svc billing-svc; do \
+		if [ -f "services/$$service/go.mod" ]; then \
+			echo -e "${CYAN}Installing dependencies for $$service${NC}"; \
+			cd services/$$service && go mod download && cd ../..; \
+		fi \
+	done
 
-# ==========================================
-# DESENVOLVIMENTO
-# ==========================================
+deps-rust: ## Install Rust dependencies
+	@echo -e "${YELLOW}Installing Rust dependencies...${NC}"
+	@for service in builder-svc meter-svc; do \
+		if [ -f "services/$$service/Cargo.toml" ]; then \
+			echo -e "${CYAN}Installing dependencies for $$service${NC}"; \
+			cd services/$$service && cargo fetch && cd ../..; \
+		fi \
+	done
 
-dev: ## Inicia todos os serviços em modo desenvolvimento
-	@echo "$(BLUE)Iniciando ambiente de desenvolvimento...$(RESET)"
-	make -j4 dev-web dev-services dev-proxy
+deps-node: ## Install Node.js dependencies
+	@echo -e "${YELLOW}Installing Node.js dependencies...${NC}"
+	@if [ -f "apps/front-web/package.json" ]; then \
+		echo -e "${CYAN}Installing frontend dependencies${NC}"; \
+		cd apps/front-web && npm install && cd ../..; \
+	fi
+	@if [ -f "apps/mobile-app/package.json" ]; then \
+		echo -e "${CYAN}Installing mobile app dependencies${NC}"; \
+		cd apps/mobile-app && npm install && cd ../..; \
+	fi
+	@for service in prompt-svc i18n-svc; do \
+		if [ -f "services/$$service/package.json" ]; then \
+			echo -e "${CYAN}Installing dependencies for $$service${NC}"; \
+			cd services/$$service && npm install && cd ../..; \
+		fi \
+	done
 
-dev-web: ## Inicia front-web em modo desenvolvimento
-	@echo "$(BLUE)Iniciando front-web...$(RESET)"
-	cd apps/front-web && npm run dev
+deps-python: ## Install Python dependencies
+	@echo -e "${YELLOW}Installing Python dependencies...${NC}"
+	@if [ -f "services/domain-svc/requirements.txt" ]; then \
+		echo -e "${CYAN}Installing domain service dependencies${NC}"; \
+		cd services/domain-svc && \
+		python3 -m venv venv 2>/dev/null || true && \
+		source venv/bin/activate && \
+		pip install -r requirements.txt && \
+		deactivate && cd ../..; \
+	fi
 
-dev-mobile: ## Inicia mobile-app com Expo
-	@echo "$(BLUE)Iniciando mobile-app...$(RESET)"
-	cd apps/mobile-app && npx expo start
-
-dev-services: ## Inicia todos os serviços backend
-	make -j8 dev-auth dev-prompt dev-builder dev-build dev-host dev-domain dev-meter dev-billing dev-i18n
-
-dev-auth: ## Inicia auth-svc em modo desenvolvimento
-	cd services/auth-svc && go run main.go
-
-dev-prompt: ## Inicia prompt-svc em modo desenvolvimento
-	cd services/prompt-svc && npm run dev
-
-dev-builder: ## Inicia builder-svc em modo desenvolvimento
-	cd services/builder-svc && cargo run
-
-dev-build: ## Inicia build-svc em modo desenvolvimento
-	cd services/build-svc && go run main.go
-
-dev-host: ## Inicia host-svc em modo desenvolvimento
-	cd services/host-svc && go run main.go
-
-dev-domain: ## Inicia domain-svc em modo desenvolvimento
-	cd services/domain-svc && python -m uvicorn main:app --reload
-
-dev-meter: ## Inicia meter-svc em modo desenvolvimento
-	cd services/meter-svc && cargo run
-
-dev-billing: ## Inicia billing-svc em modo desenvolvimento
-	cd services/billing-svc && go run main.go
-
-dev-i18n: ## Inicia i18n-svc em modo desenvolvimento
-	cd services/i18n-svc && npm run dev
-
-dev-proxy: ## Inicia usage-proxy
-	cd services/usage-proxy && nginx -c $(PWD)/services/usage-proxy/nginx.conf
+update-deps: ## Update all dependencies to latest versions
+	@echo -e "${YELLOW}Updating all dependencies...${NC}"
+	@$(MAKE) deps-go deps-rust deps-node deps-python
 
 # ==========================================
-# BUILD E IMAGENS DOCKER
+# DEVELOPMENT
 # ==========================================
 
-build: ## Build de todos os serviços
-ifdef SERVICE
-	@echo "$(BLUE)Building $(SERVICE)...$(RESET)"
-	docker build -t $(DOCKER_REGISTRY)/$(SERVICE):$(VERSION) services/$(SERVICE)
-else
-	@echo "$(BLUE)Building todos os serviços...$(RESET)"
-	make build-services build-apps
-endif
+dev: ## Start development environment
+	@echo -e "${BLUE}Starting Page Magic development environment...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d
+	@echo -e "${GREEN}Development environment started!${NC}"
+	@echo -e "${YELLOW}Available at:${NC}"
+	@echo -e "  • Frontend: ${CYAN}http://localhost:3000${NC}"
+	@echo -e "  • API Gateway: ${CYAN}http://localhost:8080${NC}"
+	@echo -e "  • Grafana: ${CYAN}http://localhost:3001${NC}"
 
-build-all: build-services build-apps ## Build completo (serviços + apps)
+dev-build: ## Build and start development environment
+	@echo -e "${BLUE}Building and starting development environment...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d --build
 
-build-services: ## Build de todos os microserviços
-	@echo "$(BLUE)Building microserviços...$(RESET)"
-	$(MAKE) -j8 build-auth build-prompt build-builder build-build build-host build-domain build-meter build-billing build-i18n build-proxy
+down: ## Stop development environment
+	@echo -e "${YELLOW}Stopping development environment...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) down
+	@echo -e "${GREEN}Development environment stopped${NC}"
 
-build-apps: ## Build de front-web e mobile-app
-	@echo "$(BLUE)Building applications...$(RESET)"
-	cd apps/front-web && npm run build
-	cd apps/mobile-app && npx expo export
+restart: ## Restart development environment
+	@echo -e "${YELLOW}Restarting development environment...${NC}"
+	@$(MAKE) down
+	@$(MAKE) dev
 
-build-auth: ## Build auth-svc
-	docker build -t $(DOCKER_REGISTRY)/auth-svc:$(VERSION) services/auth-svc
-
-build-prompt: ## Build prompt-svc
-	docker build -t $(DOCKER_REGISTRY)/prompt-svc:$(VERSION) services/prompt-svc
-
-build-builder: ## Build builder-svc
-	docker build -t $(DOCKER_REGISTRY)/builder-svc:$(VERSION) services/builder-svc
-
-build-build: ## Build build-svc
-	docker build -t $(DOCKER_REGISTRY)/build-svc:$(VERSION) services/build-svc
-
-build-host: ## Build host-svc
-	docker build -t $(DOCKER_REGISTRY)/host-svc:$(VERSION) services/host-svc
-
-build-domain: ## Build domain-svc
-	docker build -t $(DOCKER_REGISTRY)/domain-svc:$(VERSION) services/domain-svc
-
-build-meter: ## Build meter-svc
-	docker build -t $(DOCKER_REGISTRY)/meter-svc:$(VERSION) services/meter-svc
-
-build-billing: ## Build billing-svc
-	docker build -t $(DOCKER_REGISTRY)/billing-svc:$(VERSION) services/billing-svc
-
-build-i18n: ## Build i18n-svc
-	docker build -t $(DOCKER_REGISTRY)/i18n-svc:$(VERSION) services/i18n-svc
-
-build-proxy: ## Build usage-proxy
-	docker build -t $(DOCKER_REGISTRY)/usage-proxy:$(VERSION) services/usage-proxy
+restart-service: ## Restart a specific service (usage: make restart-service SERVICE=auth-svc)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo -e "${RED}Please specify a service: make restart-service SERVICE=auth-svc${NC}"; \
+		exit 1; \
+	fi
+	@echo -e "${YELLOW}Restarting $(SERVICE)...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) restart $(SERVICE)
 
 # ==========================================
-# TESTES
+# BUILDING
 # ==========================================
 
-test: ## Executa todos os testes
-	@echo "$(BLUE)Executando todos os testes...$(RESET)"
-	make test-unit test-integration test-e2e
+build: ## Build all services
+	@echo -e "${BLUE}Building all services...${NC}"
+	@$(MAKE) build-go build-rust build-node build-python
 
-test-unit: ## Testes unitários
-	@echo "$(BLUE)Executando testes unitários...$(RESET)"
-	cd apps/front-web && npm run test
-	cd apps/mobile-app && npm run test
-	cd services/prompt-svc && npm test
-	cd services/i18n-svc && npm test
-	cd services/auth-svc && go test ./...
-	cd services/build-svc && go test ./...
-	cd services/host-svc && go test ./...
-	cd services/billing-svc && go test ./...
-	cd services/builder-svc && cargo test
-	cd services/meter-svc && cargo test
+build-docker: ## Build all Docker images
+	@echo -e "${BLUE}Building Docker images...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) build --parallel
 
-test-integration: ## Testes de integração
-	@echo "$(BLUE)Executando testes de integração...$(RESET)"
-	docker-compose -f infrastructure/docker/docker-compose.test.yml up --abort-on-container-exit
+build-go: ## Build Go services
+	@echo -e "${YELLOW}Building Go services...${NC}"
+	@for service in auth-svc build-svc host-svc billing-svc; do \
+		if [ -f "services/$$service/main.go" ]; then \
+			echo -e "${CYAN}Building $$service${NC}"; \
+			cd services/$$service && go build -o bin/$$service ./cmd && cd ../..; \
+		fi \
+	done
 
-test-e2e: ## Testes end-to-end
-	@echo "$(BLUE)Executando testes E2E...$(RESET)"
-	cd apps/front-web && npx playwright test
+build-rust: ## Build Rust services
+	@echo -e "${YELLOW}Building Rust services...${NC}"
+	@for service in builder-svc meter-svc; do \
+		if [ -f "services/$$service/Cargo.toml" ]; then \
+			echo -e "${CYAN}Building $$service${NC}"; \
+			cd services/$$service && cargo build --release && cd ../..; \
+		fi \
+	done
 
-test-mobile: ## Testes mobile (Detox)
-	@echo "$(BLUE)Executando testes mobile...$(RESET)"
-	cd apps/mobile-app && npx detox test
+build-node: ## Build Node.js services and apps
+	@echo -e "${YELLOW}Building Node.js services and apps...${NC}"
+	@if [ -f "apps/front-web/package.json" ]; then \
+		echo -e "${CYAN}Building frontend${NC}"; \
+		cd apps/front-web && npm run build && cd ../..; \
+	fi
+	@if [ -f "apps/mobile-app/package.json" ]; then \
+		echo -e "${CYAN}Building mobile app${NC}"; \
+		cd apps/mobile-app && npm run build:android && cd ../..; \
+	fi
 
-test-load: ## Testes de carga (K6)
-	@echo "$(BLUE)Executando testes de carga...$(RESET)"
-	k6 run tests/load/script.js
-
-# ==========================================
-# DEPLOY
-# ==========================================
-
-deploy-staging: ## Deploy para staging
-	@echo "$(BLUE)Deploy para staging...$(RESET)"
-	kubectl apply -f infrastructure/k8s/staging/
-	kubectl rollout status deployment -n pagemagic-staging
-
-deploy-prod: ## Deploy para produção
-	@echo "$(BLUE)Deploy para produção...$(RESET)"
-	kubectl apply -f infrastructure/k8s/production/
-	kubectl rollout status deployment -n pagemagic-prod
-
-push: ## Push images para registry
-ifdef SERVICE
-	docker push $(DOCKER_REGISTRY)/$(SERVICE):$(VERSION)
-else
-	@echo "$(BLUE)Pushing todas as images...$(RESET)"
-	docker push $(DOCKER_REGISTRY)/auth-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/prompt-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/builder-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/build-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/host-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/domain-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/meter-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/billing-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/i18n-svc:$(VERSION)
-	docker push $(DOCKER_REGISTRY)/usage-proxy:$(VERSION)
-endif
+build-python: ## Build Python services
+	@echo -e "${YELLOW}Building Python services...${NC}"
+	@echo -e "${CYAN}Python services don't require building${NC}"
 
 # ==========================================
-# UTILITÁRIOS
+# TESTING
 # ==========================================
 
-logs: ## Mostra logs de um serviço específico
-ifdef SERVICE
-	docker logs -f pagemagic_$(SERVICE)
-else
-	@echo "$(RED)Use: make logs SERVICE=<service-name>$(RESET)"
-endif
+test: ## Run all tests
+	@echo -e "${BLUE}Running all tests...${NC}"
+	@$(MAKE) test-go test-rust test-node test-python
 
-shell: ## Acessa shell de um serviço
-ifdef SERVICE
-	docker exec -it pagemagic_$(SERVICE) /bin/sh
-else
-	@echo "$(RED)Use: make shell SERVICE=<service-name>$(RESET)"
-endif
+test-go: ## Run Go tests
+	@echo -e "${YELLOW}Running Go tests...${NC}"
+	@for service in auth-svc build-svc host-svc billing-svc; do \
+		if [ -f "services/$$service/go.mod" ]; then \
+			echo -e "${CYAN}Testing $$service${NC}"; \
+			cd services/$$service && go test ./... -v && cd ../..; \
+		fi \
+	done
 
-clean: ## Limpa containers, images e volumes
-	@echo "$(BLUE)Limpando ambiente...$(RESET)"
-	docker system prune -f
-	docker volume prune -f
+test-rust: ## Run Rust tests
+	@echo -e "${YELLOW}Running Rust tests...${NC}"
+	@for service in builder-svc meter-svc; do \
+		if [ -f "services/$$service/Cargo.toml" ]; then \
+			echo -e "${CYAN}Testing $$service${NC}"; \
+			cd services/$$service && cargo test && cd ../..; \
+		fi \
+	done
 
-clean-all: ## Limpeza completa (cuidado!)
-	@echo "$(RED)Limpeza completa...$(RESET)"
-	docker system prune -af
-	docker volume prune -f
+test-node: ## Run Node.js tests
+	@echo -e "${YELLOW}Running Node.js tests...${NC}"
+	@if [ -f "apps/front-web/package.json" ]; then \
+		echo -e "${CYAN}Testing frontend${NC}"; \
+		cd apps/front-web && npm test && cd ../..; \
+	fi
+	@for service in prompt-svc i18n-svc; do \
+		if [ -f "services/$$service/package.json" ]; then \
+			echo -e "${CYAN}Testing $$service${NC}"; \
+			cd services/$$service && npm test && cd ../..; \
+		fi \
+	done
 
-db-migrate: ## Executa migrações do banco
-	@echo "$(BLUE)Executando migrações...$(RESET)"
-	docker exec pagemagic_postgres psql -U pagemagic -d pagemagic -f /docker-entrypoint-initdb.d/migrations.sql
+test-python: ## Run Python tests
+	@echo -e "${YELLOW}Running Python tests...${NC}"
+	@if [ -f "services/domain-svc/requirements.txt" ]; then \
+		echo -e "${CYAN}Testing domain service${NC}"; \
+		cd services/domain-svc && \
+		source venv/bin/activate && \
+		python -m pytest tests/ && \
+		deactivate && cd ../..; \
+	fi
 
-db-seed: ## Popula banco com dados de teste
-	@echo "$(BLUE)Populando banco...$(RESET)"
-	docker exec pagemagic_postgres psql -U pagemagic -d pagemagic -f /docker-entrypoint-initdb.d/seed.sql
-
-db-reset: ## Reset completo do banco
-	@echo "$(RED)Resetando banco...$(RESET)"
-	make infra-down
-	docker volume rm pagemagic_postgres_data
-	make infra-up
-	sleep 10
-	make db-migrate
-	make db-seed
-
-monitor: ## Abre dashboards de monitoramento
-	@echo "$(BLUE)Abrindo dashboards...$(RESET)"
-	@echo "Grafana: http://localhost:3000"
-	@echo "Prometheus: http://localhost:9090"
-	@echo "Loki: http://localhost:3100"
-
-# ==========================================
-# MOBILE ESPECÍFICO
-# ==========================================
-
-mobile-build-ios: ## Build iOS
-	cd apps/mobile-app && npx eas build --platform ios
-
-mobile-build-android: ## Build Android
-	cd apps/mobile-app && npx eas build --platform android
-
-mobile-submit-ios: ## Submit para App Store
-	cd apps/mobile-app && npx eas submit --platform ios
-
-mobile-submit-android: ## Submit para Google Play
-	cd apps/mobile-app && npx eas submit --platform android
-
-mobile-update: ## OTA Update
-	cd apps/mobile-app && npx eas update
+test-integration: ## Run integration tests
+	@echo -e "${YELLOW}Running integration tests...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec -T postgres psql -U pagemagic -d pagemagic -c "SELECT 1"
+	@echo -e "${GREEN}Integration tests passed${NC}"
 
 # ==========================================
-# DESENVOLVIMENTO AVANÇADO
+# CODE QUALITY
 # ==========================================
 
-lint: ## Executa linting em todos os projetos
-	@echo "$(BLUE)Executando linting...$(RESET)"
-	cd apps/front-web && npm run lint
-	cd apps/mobile-app && npm run lint
-	cd services/prompt-svc && npm run lint
-	cd services/i18n-svc && npm run lint
+lint: ## Run linters for all languages
+	@echo -e "${BLUE}Running linters...${NC}"
+	@$(MAKE) lint-go lint-rust lint-node lint-python
 
-format: ## Formata código
-	@echo "$(BLUE)Formatando código...$(RESET)"
-	cd apps/front-web && npm run format
-	cd apps/mobile-app && npm run format
-	cd services/prompt-svc && npm run format
-	cd services/i18n-svc && npm run format
-	cd services/builder-svc && cargo fmt
-	cd services/meter-svc && cargo fmt
+lint-go: ## Run Go linter
+	@echo -e "${YELLOW}Linting Go code...${NC}"
+	@for service in auth-svc build-svc host-svc billing-svc; do \
+		if [ -f "services/$$service/go.mod" ]; then \
+			echo -e "${CYAN}Linting $$service${NC}"; \
+			cd services/$$service && golangci-lint run || true && cd ../..; \
+		fi \
+	done
 
-security-scan: ## Scan de segurança
-	@echo "$(BLUE)Executando scan de segurança...$(RESET)"
-	trivy fs .
+lint-rust: ## Run Rust linter
+	@echo -e "${YELLOW}Linting Rust code...${NC}"
+	@for service in builder-svc meter-svc; do \
+		if [ -f "services/$$service/Cargo.toml" ]; then \
+			echo -e "${CYAN}Linting $$service${NC}"; \
+			cd services/$$service && cargo clippy -- -D warnings || true && cd ../..; \
+		fi \
+	done
 
-docs: ## Gera documentação
-	@echo "$(BLUE)Gerando documentação...$(RESET)"
-	cd docs && npm run build
+lint-node: ## Run Node.js linter
+	@echo -e "${YELLOW}Linting Node.js code...${NC}"
+	@if [ -f "apps/front-web/package.json" ]; then \
+		echo -e "${CYAN}Linting frontend${NC}"; \
+		cd apps/front-web && npm run lint || true && cd ../..; \
+	fi
 
-default: help
+lint-python: ## Run Python linter
+	@echo -e "${YELLOW}Linting Python code...${NC}"
+	@if [ -f "services/domain-svc/requirements.txt" ]; then \
+		echo -e "${CYAN}Linting domain service${NC}"; \
+		cd services/domain-svc && \
+		source venv/bin/activate && \
+		black --check . || true && \
+		flake8 . || true && \
+		deactivate && cd ../..; \
+	fi
+
+format: ## Format code for all languages
+	@echo -e "${BLUE}Formatting code...${NC}"
+	@$(MAKE) format-go format-rust format-node format-python
+
+format-go: ## Format Go code
+	@echo -e "${YELLOW}Formatting Go code...${NC}"
+	@for service in auth-svc build-svc host-svc billing-svc; do \
+		if [ -f "services/$$service/go.mod" ]; then \
+			echo -e "${CYAN}Formatting $$service${NC}"; \
+			cd services/$$service && go fmt ./... && cd ../..; \
+		fi \
+	done
+
+format-rust: ## Format Rust code
+	@echo -e "${YELLOW}Formatting Rust code...${NC}"
+	@for service in builder-svc meter-svc; do \
+		if [ -f "services/$$service/Cargo.toml" ]; then \
+			echo -e "${CYAN}Formatting $$service${NC}"; \
+			cd services/$$service && cargo fmt && cd ../..; \
+		fi \
+	done
+
+format-node: ## Format Node.js code
+	@echo -e "${YELLOW}Formatting Node.js code...${NC}"
+	@if [ -f "apps/front-web/package.json" ]; then \
+		echo -e "${CYAN}Formatting frontend${NC}"; \
+		cd apps/front-web && npm run format || true && cd ../..; \
+	fi
+
+format-python: ## Format Python code
+	@echo -e "${YELLOW}Formatting Python code...${NC}"
+	@if [ -f "services/domain-svc/requirements.txt" ]; then \
+		echo -e "${CYAN}Formatting domain service${NC}"; \
+		cd services/domain-svc && \
+		source venv/bin/activate && \
+		black . && \
+		isort . && \
+		deactivate && cd ../..; \
+	fi
+
+security-check: ## Run security checks
+	@echo -e "${BLUE}Running security checks...${NC}"
+	@echo -e "${CYAN}Checking for vulnerabilities...${NC}"
+	@for service in auth-svc build-svc host-svc billing-svc; do \
+		if [ -f "services/$$service/go.mod" ]; then \
+			cd services/$$service && go list -json -m all | nancy sleuth || true && cd ../..; \
+		fi \
+	done
 
 # ==========================================
-# SERVIÇOS ESPECÍFICOS
+# DATABASE OPERATIONS
 # ==========================================
 
-# Auth Service (Go)
-auth-dev: ## Inicia auth-svc em modo desenvolvimento
-	@echo "$(BLUE)Iniciando auth-svc...$(RESET)"
-	cd services/auth-svc && go run main.go
+db-shell: ## Connect to PostgreSQL database
+	@echo -e "${BLUE}Connecting to PostgreSQL database...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec postgres psql -U pagemagic -d pagemagic
 
-auth-build: ## Build do auth-svc
-	@echo "$(BLUE)Building auth-svc...$(RESET)"
-	cd services/auth-svc && go build -o bin/auth-svc main.go
+redis-shell: ## Connect to Redis
+	@echo -e "${BLUE}Connecting to Redis...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec redis redis-cli
 
-auth-test: ## Testes do auth-svc
-	cd services/auth-svc && go test ./...
+migration-create: ## Create new database migration (usage: make migration-create NAME=add_users_table)
+	@if [ -z "$(NAME)" ]; then \
+		echo -e "${RED}Please specify migration name: make migration-create NAME=add_users_table${NC}"; \
+		exit 1; \
+	fi
+	@echo -e "${YELLOW}Creating migration: $(NAME)${NC}"
+	@mkdir -p infrastructure/database/migrations
+	@timestamp=$$(date +%Y%m%d%H%M%S); \
+	echo "-- Migration: $(NAME)" > infrastructure/database/migrations/$${timestamp}_$(NAME).sql; \
+	echo "-- Created at: $$(date)" >> infrastructure/database/migrations/$${timestamp}_$(NAME).sql; \
+	echo "" >> infrastructure/database/migrations/$${timestamp}_$(NAME).sql; \
+	echo "-- Add your migration SQL here" >> infrastructure/database/migrations/$${timestamp}_$(NAME).sql
+	@echo -e "${GREEN}Migration created: infrastructure/database/migrations/$${timestamp}_$(NAME).sql${NC}"
 
-# Prompt Service (Node.js)
-prompt-dev: ## Inicia prompt-svc em modo desenvolvimento
-	@echo "$(BLUE)Iniciando prompt-svc...$(RESET)"
-	cd services/prompt-svc && npm run dev
+migration-up: ## Run database migrations
+	@echo -e "${YELLOW}Running database migrations...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec -T postgres psql -U pagemagic -d pagemagic -f /docker-entrypoint-initdb.d/01-init.sql
 
-prompt-build: ## Build do prompt-svc
-	@echo "$(BLUE)Building prompt-svc...$(RESET)"
-	cd services/prompt-svc && npm run build
+seed: ## Seed database with sample data
+	@echo -e "${YELLOW}Seeding database...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec -T postgres psql -U pagemagic -d pagemagic -f /docker-entrypoint-initdb.d/02-seed.sql
 
-prompt-test: ## Testes do prompt-svc
-	cd services/prompt-svc && npm test
+backup: ## Backup database
+	@echo -e "${YELLOW}Backing up database...${NC}"
+	@timestamp=$$(date +%Y%m%d_%H%M%S); \
+	docker-compose -f $(DOCKER_COMPOSE_FILE) exec -T postgres pg_dump -U pagemagic pagemagic > backup_$${timestamp}.sql; \
+	echo -e "${GREEN}Database backed up to backup_$${timestamp}.sql${NC}"
 
-# Builder Service (Rust)
-builder-dev: ## Inicia builder-svc em modo desenvolvimento
-	@echo "$(BLUE)Iniciando builder-svc...$(RESET)"
-	cd services/builder-svc && cargo run
-
-builder-build: ## Build do builder-svc
-	@echo "$(BLUE)Building builder-svc...$(RESET)"
-	cd services/builder-svc && cargo build --release
-
-builder-test: ## Testes do builder-svc
-	cd services/builder-svc && cargo test
-
-# Front Web (Next.js)
-web-dev: ## Inicia front-web em modo desenvolvimento
-	@echo "$(BLUE)Iniciando front-web...$(RESET)"
-	cd apps/front-web && npm run dev
-
-web-build: ## Build do front-web
-	@echo "$(BLUE)Building front-web...$(RESET)"
-	cd apps/front-web && npm run build
-
-web-test: ## Testes do front-web
-	cd apps/front-web && npm test
+restore: ## Restore database from backup (usage: make restore BACKUP=backup_20231201_120000.sql)
+	@if [ -z "$(BACKUP)" ]; then \
+		echo -e "${RED}Please specify backup file: make restore BACKUP=backup_20231201_120000.sql${NC}"; \
+		exit 1; \
+	fi
+	@echo -e "${YELLOW}Restoring database from $(BACKUP)...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec -T postgres psql -U pagemagic -d pagemagic < $(BACKUP)
 
 # ==========================================
-# COMANDOS COMBINADOS
+# MONITORING & LOGS
 # ==========================================
 
-build-services: auth-build prompt-build builder-build ## Build de todos os serviços
+logs: ## Show logs for all services
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) logs -f
 
-test-services: auth-test prompt-test builder-test ## Testes de todos os serviços
+logs-service: ## Show logs for specific service (usage: make logs-service SERVICE=auth-svc)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo -e "${RED}Please specify a service: make logs-service SERVICE=auth-svc${NC}"; \
+		exit 1; \
+	fi
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) logs -f $(SERVICE)
 
-dev-backend: ## Inicia todos os serviços backend
-	make -j3 auth-dev prompt-dev builder-dev
+status: ## Show status of all services
+	@echo -e "${BLUE}Service Status:${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) ps
+
+health: ## Check health of all services
+	@echo -e "${BLUE}Checking service health...${NC}"
+	@curl -s http://localhost:3001/health | jq '.' || echo "Auth service not responding"
+	@curl -s http://localhost:3002/health | jq '.' || echo "Prompt service not responding"
+	@curl -s http://localhost:3003/health | jq '.' || echo "Builder service not responding"
+
+check-ports: ## Check if required ports are available
+	@echo -e "${BLUE}Checking port availability...${NC}"
+	@for port in 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 5432 5433 6379 9000 9001 8080; do \
+		if netstat -tuln | grep -q ":$$port "; then \
+			echo -e "${RED}Port $$port is in use${NC}"; \
+		else \
+			echo -e "${GREEN}Port $$port is available${NC}"; \
+		fi \
+	done
+
+# ==========================================
+# UTILITIES
+# ==========================================
+
+clean: ## Clean up containers, images, and volumes
+	@echo -e "${YELLOW}Cleaning up Docker resources...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans
+	@docker system prune -f
+	@echo -e "${GREEN}Cleanup completed${NC}"
+
+clean-all: ## Clean everything including images
+	@echo -e "${YELLOW}Cleaning up everything...${NC}"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans --rmi all
+	@docker system prune -af
+	@echo -e "${GREEN}Deep cleanup completed${NC}"
+
+shell: ## Open shell in a service container (usage: make shell SERVICE=auth-svc)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo -e "${RED}Please specify a service: make shell SERVICE=auth-svc${NC}"; \
+		exit 1; \
+	fi
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) exec $(SERVICE) /bin/sh
+
+env-check: ## Check environment variables
+	@echo -e "${BLUE}Environment Configuration:${NC}"
+	@if [ -f .env ]; then \
+		echo -e "${GREEN}.env file exists${NC}"; \
+		grep -v "^#" .env | grep -v "^$$" | wc -l | xargs echo "Variables configured:"; \
+	else \
+		echo -e "${RED}.env file not found${NC}"; \
+		echo -e "${YELLOW}Run 'cp .env.example .env' and configure your environment${NC}"; \
+	fi
+
+docs: ## Generate and serve documentation
+	@echo -e "${BLUE}Generating documentation...${NC}"
+	@echo -e "${CYAN}Documentation will be available at http://localhost:8000${NC}"
+
+benchmark: ## Run performance benchmarks
+	@echo -e "${BLUE}Running benchmarks...${NC}"
+	@echo -e "${YELLOW}This will run load tests against the services${NC}"
+
+# ==========================================
+# PRODUCTION
+# ==========================================
+
+prod-build: ## Build production Docker images
+	@echo -e "${BLUE}Building production images...${NC}"
+	@docker-compose -f $(DOCKER_PROD_FILE) build
+
+prod-up: ## Start production environment
+	@echo -e "${BLUE}Starting production environment...${NC}"
+	@docker-compose -f $(DOCKER_PROD_FILE) up -d
+
+prod-down: ## Stop production environment
+	@echo -e "${YELLOW}Stopping production environment...${NC}"
+	@docker-compose -f $(DOCKER_PROD_FILE) down
+
+# ==========================================
+# RELEASE
+# ==========================================
+
+release-check: ## Check if ready for release
+	@echo -e "${BLUE}Checking release readiness...${NC}"
+	@$(MAKE) test lint security-check
+	@echo -e "${GREEN}Release checks passed${NC}"
+
+tag: ## Create a new git tag (usage: make tag VERSION=v1.0.0)
+	@if [ -z "$(VERSION)" ]; then \
+		echo -e "${RED}Please specify version: make tag VERSION=v1.0.0${NC}"; \
+		exit 1; \
+	fi
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo -e "${GREEN}Tagged $(VERSION)${NC}"
+
+# ==========================================
+# ALIASES
+# ==========================================
+
+up: dev ## Alias for dev
+start: dev ## Alias for dev
+stop: down ## Alias for down

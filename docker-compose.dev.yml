@@ -1,0 +1,591 @@
+# Page Magic - Complete Docker Compose with All Services
+version: '3.8'
+
+# Networks
+networks:
+  pagemagic-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  timescaledb_data:
+    driver: local
+  minio_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+services:
+  # ==========================================
+  # DATABASES
+  # ==========================================
+
+  # PostgreSQL - Main Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: pagemagic-postgres
+    environment:
+      POSTGRES_DB: pagemagic
+      POSTGRES_USER: pagemagic
+      POSTGRES_PASSWORD: pagemagic123
+      POSTGRES_MULTIPLE_DATABASES: auth,projects,builds,domains,billing,analytics
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./infrastructure/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagemagic -d pagemagic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # TimescaleDB - Analytics & Metrics
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: pagemagic-timescaledb
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: analytics
+      POSTGRES_PASSWORD: analytics123
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./infrastructure/database/timescale-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5433:5432"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.11
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics -d analytics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Redis - Cache & Sessions
+  redis:
+    image: redis:7-alpine
+    container_name: pagemagic-redis
+    command: redis-server --requirepass redis123 --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.12
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ==========================================
+  # MESSAGE QUEUE & STREAMING
+  # ==========================================
+
+  # NATS JetStream
+  nats:
+    image: nats:2.10-alpine
+    container_name: pagemagic-nats
+    command: [
+      "--jetstream",
+      "--store_dir=/nats/storage",
+      "--max_memory_store=1GB",
+      "--max_file_store=10GB"
+    ]
+    volumes:
+      - ./infrastructure/nats:/nats/storage
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.13
+    restart: unless-stopped
+
+  # ==========================================
+  # STORAGE
+  # ==========================================
+
+  # MinIO - Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: pagemagic-minio
+    environment:
+      MINIO_ROOT_USER: pagemagic
+      MINIO_ROOT_PASSWORD: pagemagic123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.14
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ==========================================
+  # CORE SERVICES
+  # ==========================================
+
+  # Authentication Service (Go)
+  auth-svc:
+    build:
+      context: ./services/auth-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-auth-svc
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: auth
+      DB_USER: pagemagic
+      DB_PASSWORD: pagemagic123
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-jwt-secret-key-here
+      MAIL_FROM: noreply@pagemagic.dev
+      MAIL_SMTP_HOST: smtp.gmail.com
+      MAIL_SMTP_PORT: 587
+      MAGIC_LINK_TTL: 900
+    ports:
+      - "3001:3001"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.20
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Prompt Service (Node.js)
+  prompt-svc:
+    build:
+      context: ./services/prompt-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-prompt-svc
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      POSTGRES_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+    ports:
+      - "3002:3002"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.21
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    restart: unless-stopped
+
+  # Builder Service (Rust)
+  builder-svc:
+    build:
+      context: ./services/builder-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-builder-svc
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: pagemagic
+      STORAGE_SECRET_KEY: pagemagic123
+    ports:
+      - "3003:3003"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.22
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Build Service (Go)
+  build-svc:
+    build:
+      context: ./services/build-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-build-svc
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: builds
+      DB_USER: pagemagic
+      DB_PASSWORD: pagemagic123
+      REDIS_URL: redis://redis:6379
+      DOCKER_HOST: unix:///var/run/docker.sock
+      WORK_DIR: /tmp/builds
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/pagemagic-builds:/tmp/builds
+    ports:
+      - "3004:3004"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.23
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Host Service (Go)
+  host-svc:
+    build:
+      context: ./services/host-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-host-svc
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: pagemagic
+      DB_USER: pagemagic
+      DB_PASSWORD: pagemagic123
+      REDIS_URL: redis://redis:6379
+      CDN_ENDPOINT: http://minio:9000
+    ports:
+      - "3005:3005"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.24
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Domain Service (Python)
+  domain-svc:
+    build:
+      context: ./services/domain-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-domain-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@postgres:5432/domains
+      REDIS_URL: redis://redis:6379
+      DEFAULT_IP: 172.20.0.30
+      ALLOWED_ORIGINS: "*"
+    ports:
+      - "3006:8000"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # i18n Service (Node.js)
+  i18n-svc:
+    build:
+      context: ./services/i18n-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-i18n-svc
+    environment:
+      NODE_ENV: development
+      PORT: 3007
+      POSTGRES_URL: postgresql://pagemagic:pagemagic123@postgres:5432/pagemagic
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3007:3007"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.26
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Meter Service (Rust)
+  meter-svc:
+    build:
+      context: ./services/meter-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-meter-svc
+    environment:
+      DATABASE_URL: postgresql://pagemagic:pagemagic123@timescaledb:5432/analytics
+      REDIS_URL: redis://redis:6379
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+    ports:
+      - "3008:3008"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.27
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Billing Service (Go)
+  billing-svc:
+    build:
+      context: ./services/billing-svc
+      dockerfile: Dockerfile
+    container_name: pagemagic-billing-svc
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: billing
+      DB_USER: pagemagic
+      DB_PASSWORD: pagemagic123
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+    ports:
+      - "3009:3009"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.28
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Usage Proxy (Nginx + Lua)
+  usage-proxy:
+    build:
+      context: ./services/usage-proxy
+      dockerfile: Dockerfile
+    container_name: pagemagic-usage-proxy
+    environment:
+      METER_SERVICE_URL: http://meter-svc:3008
+      REDIS_URL: redis:6379
+    ports:
+      - "8080:80"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.29
+    depends_on:
+      - meter-svc
+      - redis
+    restart: unless-stopped
+
+  # ==========================================
+  # FRONTEND & APPLICATIONS
+  # ==========================================
+
+  # Web Frontend (Next.js)
+  front-web:
+    build:
+      context: ./apps/front-web
+      dockerfile: Dockerfile
+    container_name: pagemagic-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_WS_URL: ws://localhost:3002
+      NEXTAUTH_SECRET: your-nextauth-secret
+      NEXTAUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.30
+    depends_on:
+      - auth-svc
+      - prompt-svc
+    restart: unless-stopped
+
+  # ==========================================
+  # LOAD BALANCER & REVERSE PROXY
+  # ==========================================
+
+  # Nginx - Main Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: pagemagic-nginx
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.31
+    depends_on:
+      - front-web
+      - auth-svc
+      - prompt-svc
+      - builder-svc
+      - build-svc
+      - host-svc
+      - domain-svc
+      - i18n-svc
+      - meter-svc
+      - billing-svc
+      - usage-proxy
+    restart: unless-stopped
+
+  # ==========================================
+  # MONITORING & OBSERVABILITY
+  # ==========================================
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pagemagic-prometheus
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.40
+    restart: unless-stopped
+
+  # Grafana - Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pagemagic-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.41
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Jaeger - Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: pagemagic-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.42
+    restart: unless-stopped
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: pagemagic-otel-collector
+    volumes:
+      - ./infrastructure/observability/otel-collector.yaml:/etc/otel-collector.yaml:ro
+    command: ["--config=/etc/otel-collector.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.43
+    depends_on:
+      - jaeger
+      - prometheus
+    restart: unless-stopped
+
+  # ==========================================
+  # DEVELOPMENT TOOLS
+  # ==========================================
+
+  # Redis Commander - Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: pagemagic-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis123
+    ports:
+      - "8081:8081"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.50
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # pgAdmin - PostgreSQL GUI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pagemagic-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pagemagic.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8082:80"
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.51
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Mailhog - Email Testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: pagemagic-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      pagemagic-network:
+        ipv4_address: 172.20.0.52
+    restart: unless-stopped
